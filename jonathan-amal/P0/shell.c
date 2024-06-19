@@ -3,14 +3,19 @@
 #include <string.h>
 
 #define READ_BUFFER_SIZE 1024
+#define BUILT_IN_COMMANDS_NUM 3
 
+const char delimiters[] = " \n\t\v\f\r";
+const char* builtin_commands[BUILT_IN_COMMANDS_NUM] = {"exit", "cd", "exec"};
 
 void parse_input(char buf[READ_BUFFER_SIZE]) {
-	if (strcmp(buf, "\n")  == 0) {
+	if (strcmp(buf, "\n") == 0) {
 		return;
 	}
 
-	printf("Unrecognized command\n");
+	char *tok = strtok(buf, delimiters);
+
+	fprintf(stderr, "Unrecognized command: %s\n", tok);
 }
 
 int main() {
