@@ -2,7 +2,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
-
+#include <stdbool.h>
+#include <errno.h>
 
 const char delimiters[] = " \n\t\v\f\r";
 
@@ -47,18 +48,72 @@ size_t create_token_list(char *str, char ***tokens) {
 	return tokens_count;
 }
 
-void parse_input(char *str) {
+
+void parse_input(char *str, char **dir_name) {
 	if (strcmp(str, "\n") == 0) {
 		return;
 	}
 
 	char **tokens;
 	size_t tokens_count = create_token_list(str, &tokens);
+
 	//create_token_list(str, &tokens);
 	if (tokens_count == 0) {
 		return;
 	}
-	fprintf(stderr, "Unrecognized command: %s\n", tokens[0]);
+
+	if (strcmp(tokens[0], "exit") == 0) {
+		if (tokens_count > 1) {
+			fprintf(stderr, "Exit doesn't take arguments\n");
+
+		} else {
+			free(tokens);
+			free(str);
+			free(*dir_name);
+
+			exit(0);
+		}	
+
+	} else if (strcmp(tokens[0], "cd") == 0) {
+		if (tokens_count != 2) {
+			fprintf(stderr, "cd should take one argument exactly of the directory to change to.\n");
+			
+		} else {
+			int res = chdir(tokens[1]);
+
+			if(res != 0) {
+				fprintf(stderr, "cd error: %s\n", strerror(errno));
+
+			} else {
+				free(*dir_name);
+
+				*dir_name = getcwd(NULL, 0);
+			}
+		}
+
+	} else if (strcmp(tokens[0], "exec") == 0) {
+		if (tokens_count < 2) {
+			fprintf(stderr, "exec should take atleast one argument of the program to run.\n");
+
+		} else {
+			char *args[tokens_count];
+
+			for(size_t i = 0; i < tokens_count - 1; i++) {
+				args[i] = tokens[i + 1];
+			}
+
+			args[tokens_count - 1] = NULL;
+
+			int res = execv(tokens[1], args);
+
+			if (res == -1) {
+				fprintf(stderr, "exec error: %s\n", strerror(errno)); 
+			}
+		}
+
+    } else {
+		fprintf(stderr, "Unrecognized command: %s\n", tokens[0]);
+	}
 
 	free(tokens);
 }
@@ -73,7 +128,7 @@ int main() {
 	printf("%s$ ", dir_name);
 
 	while(getline(&string, &size, stdin) != -1) {
-		parse_input(string);
+		parse_input(string, &dir_name);
 
 		printf("%s$ ", dir_name);
 	}
