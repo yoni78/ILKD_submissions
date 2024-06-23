@@ -4,10 +4,23 @@
 #include <stdlib.h>
 
 int main() {
+	char *string = NULL;
+	size_t size = 0;
+	// ssize_t chars_read = 0;
+
 	char *dir_name = getcwd(NULL, 0);
 
 	printf("%s$ ", dir_name);
+
+	while(getline(&string, &size, stdin) != -1) {
+		printf("%s$ ", dir_name);
+	}
+
 	printf("\n");
+
+	if (string != NULL) {
+		free(string);
+	}
 
 	return 0;
 }
