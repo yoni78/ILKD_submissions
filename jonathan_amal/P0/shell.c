@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
+#include <pwd.h>
 
 const char delimiters[] = " \n\t\v\f\r";
 
@@ -27,6 +28,14 @@ size_t count_tokens(char *str, const char* delim) {
 	return count;
 }
 
+void free_tokens_list(char **tokens, size_t tokens_count)
+{
+	for(size_t i=0; i<tokens_count;i++)
+	{
+		free(tokens[i]);
+	}
+}
+
 size_t create_token_list(char *str, char ***tokens, const char* delim) {
 	
 	size_t tokens_count = count_tokens(str, delim);
@@ -39,7 +48,7 @@ size_t create_token_list(char *str, char ***tokens, const char* delim) {
 	tok = strtok(str, delim);
 
 	while (tok != NULL) {
-		(*tokens)[index] = tok;
+		(*tokens)[index] = strdup(tok);
 
 		index++;
 		tok = strtok(NULL, delim);
@@ -119,8 +128,68 @@ char* find_file_path_env(char* file)
 	}
 	
 	free(env_cp);
+	free_tokens_list(dirs,dirs_count);
 	free(dirs);
 	return new_path; 
+}
+
+void sub_home_dir(char **tokens, size_t tokens_count)
+{
+	char* env = getenv("HOME");
+	char * env_cp = strdup(env);
+	size_t len = 0;
+	size_t home_len = strlen(env_cp);
+	for(size_t i=0; i<tokens_count; i++)
+	{
+		if(tokens[i][0]=='~')
+		{
+			//sub
+			len = strlen(tokens[i]);
+			if(len == 1){
+				//~
+				free(tokens[i]);
+				tokens[i] = strdup(env_cp);
+			}
+			else if(len >1 && tokens[i][1]=='/'){
+				//~/whatever
+				char* tmp = malloc(sizeof(char)*(len+home_len+1));
+				strcpy(tmp, env_cp);
+				strcpy(tmp+home_len,tokens[i]+1);
+				free(tokens[i]);
+				tokens[i]= tmp;
+			}
+			else{
+				//locate user
+				char* usr_name_end = strchrnul(tokens[i],'/');
+				size_t usr_name_len = usr_name_end - tokens[i] -1 ;
+				if(usr_name_len == 0) {
+					continue;
+				}
+				char* usr_name = strndup(tokens[i]+1,usr_name_len);
+				if(!usr_name){
+					free(usr_name);
+					continue;
+				}
+				struct passwd *pw = getpwnam(usr_name);
+				if(!pw)	{
+					free(usr_name);
+					continue;
+				}
+				
+				size_t pw_dir_len = strlen(pw->pw_dir);
+				size_t tmp_len = len - usr_name_len + pw_dir_len -1 ;
+				char* tmp = malloc(tmp_len+1);
+				strcpy(tmp, pw->pw_dir);
+				strcpy(tmp+pw_dir_len, tokens[i]+usr_name_len+1);
+				tmp[tmp_len] = '\0';
+				free(usr_name);
+				free(tokens[i]);
+				tokens[i]= tmp;
+
+			}
+		}
+	}
+	free(env_cp);
 }
 
 void parse_input(char *str, char **dir_name) {
@@ -134,12 +203,14 @@ void parse_input(char *str, char **dir_name) {
 	if (tokens_count == 0) {
 		return;
 	}
+	sub_home_dir(tokens, tokens_count);
 
 	if (strcmp(tokens[0], "exit") == 0) {
 		if (tokens_count > 1) {
 			fprintf(stderr, "Exit doesn't take arguments\n");
 
 		} else {
+			free_tokens_list(tokens,tokens_count);
 			free(tokens);
 			free(str);
 			free(*dir_name);
@@ -180,14 +251,15 @@ void parse_input(char *str, char **dir_name) {
 		if(!path){
 			fprintf(stderr, "Unrecognized command: %s\n", tokens[0]);
 		}else{
+			free(tokens[0]);
 			tokens[0] = path;
 			fork_and_exec(tokens, tokens_count);
-			free(path);
+			//free(path);
 			
 		}
 
 	}
-
+	free_tokens_list(tokens,tokens_count);
 	free(tokens);
 }
 
@@ -200,6 +272,7 @@ int main() {
 	size_t size = 0;
 	char *dir_name = getcwd(NULL, 0);
 
+	
 	printf("%s$ ", dir_name);
 	while(getline(&string, &size, stdin) != -1) {
 		parse_input(string, &dir_name);
