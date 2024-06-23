@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 const char delimiters[] = " \n\t\v\f\r";
 
@@ -48,6 +50,21 @@ size_t create_token_list(char *str, char ***tokens) {
 	return tokens_count;
 }
 
+void run_execv(char **tokens, size_t tokens_count) {
+	char *args[tokens_count + 1];
+
+	for(size_t i = 0; i < tokens_count; i++) {
+		args[i] = tokens[i];
+	}
+
+	args[tokens_count] = NULL;
+
+	int res = execv(tokens[0], args);
+
+	if (res == -1) {
+		fprintf(stderr, "execv error: %s\n", strerror(errno)); 
+	}
+}
 
 void parse_input(char *str, char **dir_name) {
 	if (strcmp(str, "\n") == 0) {
@@ -57,7 +74,6 @@ void parse_input(char *str, char **dir_name) {
 	char **tokens;
 	size_t tokens_count = create_token_list(str, &tokens);
 
-	//create_token_list(str, &tokens);
 	if (tokens_count == 0) {
 		return;
 	}
@@ -96,22 +112,22 @@ void parse_input(char *str, char **dir_name) {
 			fprintf(stderr, "exec should take atleast one argument of the program to run.\n");
 
 		} else {
-			char *args[tokens_count];
-
-			for(size_t i = 0; i < tokens_count - 1; i++) {
-				args[i] = tokens[i + 1];
-			}
-
-			args[tokens_count - 1] = NULL;
-
-			int res = execv(tokens[1], args);
-
-			if (res == -1) {
-				fprintf(stderr, "exec error: %s\n", strerror(errno)); 
-			}
+			run_execv(tokens + 1, tokens_count - 1);
 		}
 
-    } else {
+    } else if (tokens[0][0] == '.' || tokens[0][0] == '/') {
+		pid_t pid = fork();
+
+		if (pid == 0) {
+			run_execv(tokens, tokens_count);
+
+			exit(0);
+
+		} else {
+			waitpid(pid, NULL, 0);
+		}
+
+	} else {
 		fprintf(stderr, "Unrecognized command: %s\n", tokens[0]);
 	}
 
