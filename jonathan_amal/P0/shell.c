@@ -12,9 +12,32 @@
 
 const char delimiters[] = " \n\t\v\f\r";
 
+void *Malloc(size_t size) {
+	void *res = malloc(size);
+
+	if (res == NULL) {
+		perror("malloc");
+
+		exit(1);
+	}
+
+	return res;
+}
+
+char *Strdup(const char *s) {
+	char *res = strdup(s);
+
+	if (res == NULL) {
+		perror("strdup");
+
+		exit(1);
+	}
+
+	return res;
+}
 
 size_t count_tokens(char *str, const char* delim) {
-	char *str_cp = strdup(str);
+	char *str_cp = Strdup(str);
 	size_t count = 0;
 	char *tok = NULL;
 
@@ -41,7 +64,7 @@ size_t create_token_list(char *str, char ***tokens, const char* delim) {
 	
 	size_t tokens_count = count_tokens(str, delim);
 
-	*tokens = malloc(sizeof(char *) * tokens_count);
+	*tokens = Malloc(sizeof(char *) * tokens_count);
 
 	char *tok = NULL;
 	size_t index = 0;
@@ -49,7 +72,7 @@ size_t create_token_list(char *str, char ***tokens, const char* delim) {
 	tok = strtok(str, delim);
 
 	while (tok != NULL) {
-		(*tokens)[index] = strdup(tok);
+		(*tokens)[index] = Strdup(tok);
 
 		index++;
 		tok = strtok(NULL, delim);
@@ -101,6 +124,12 @@ pid_t fork_and_exec(char **tokens, size_t tokens_count)
 
 	pid_t pid = fork();
 
+	if (pid < 0) {
+		perror("fork");
+
+		return -1;
+	}
+
 	if (pid == 0) {
 		run_execv(tokens, tokens_count);
 
@@ -118,7 +147,7 @@ char* find_file_path_env(char* file)
 	char* delim = ":";
 	char** dirs;
 	char* env = getenv("PATH");
-	char * env_cp = strdup(env);
+	char * env_cp = Strdup(env);
 	size_t dirs_count = create_token_list(env_cp,&dirs, delim);
 	
 	if(!dirs || !file)
@@ -131,7 +160,7 @@ char* find_file_path_env(char* file)
 	for(size_t i=0; i<dirs_count;i++)
 	{
 		dirs_len = strlen(dirs[i]);
-		new_path = malloc(dirs_len + file_len + 2);
+		new_path = Malloc(dirs_len + file_len + 2);
 
 		strcpy(new_path, dirs[i]);
 
@@ -160,7 +189,7 @@ char* find_file_path_env(char* file)
 void sub_home_dir(char **tokens, size_t tokens_count)
 {
 	char* env = getenv("HOME");
-	char * env_cp = strdup(env);
+	char * env_cp = Strdup(env);
 	size_t len = 0;
 	size_t home_len = strlen(env_cp);
 	for(size_t i=0; i<tokens_count; i++)
@@ -172,11 +201,11 @@ void sub_home_dir(char **tokens, size_t tokens_count)
 			if(len == 1){
 				//~
 				free(tokens[i]);
-				tokens[i] = strdup(env_cp);
+				tokens[i] = Strdup(env_cp);
 			}
 			else if(len >1 && tokens[i][1]=='/'){
 				//~/whatever
-				char* tmp = malloc(sizeof(char)*(len+home_len+1));
+				char* tmp = Malloc(sizeof(char)*(len+home_len+1));
 				strcpy(tmp, env_cp);
 				strcpy(tmp+home_len,tokens[i]+1);
 				free(tokens[i]);
@@ -202,7 +231,7 @@ void sub_home_dir(char **tokens, size_t tokens_count)
 				
 				size_t pw_dir_len = strlen(pw->pw_dir);
 				size_t tmp_len = len - usr_name_len + pw_dir_len -1 ;
-				char* tmp = malloc(tmp_len+1);
+				char* tmp = Malloc(tmp_len+1);
 				strcpy(tmp, pw->pw_dir);
 				strcpy(tmp+pw_dir_len, tokens[i]+usr_name_len+1);
 				tmp[tmp_len] = '\0';
@@ -220,11 +249,11 @@ char* add_redirection_padding(const char* input) {
     size_t length = strlen(input);
     size_t new_length = length * 3; 
 
-    char* result = malloc(new_length + 1);
+    char* result = Malloc(new_length + 1);
 
     size_t j = 0;
     for (size_t i = 0; i < length; ++i) {
-        if (input[i] == '<' || input[i] == '>') {
+        if (input[i] == '<' || input[i] == '>' || input[i] == '|') {
             if (i > 0 && input[i - 1] != ' ') {
                 result[j++] = ' '; 
             }
@@ -255,21 +284,71 @@ size_t find_first_redirection(char **tokens, size_t tokens_count) {
 	return tokens_count;
 }
 
-void parse_input(char *str, char **dir_name) {
-	if (strcmp(str, "\n") == 0) {
-		return;
+long get_pipe_index(char **tokens, size_t tokens_count) {
+	for(size_t i = 0; i < tokens_count; i++) {
+		if(strcmp(tokens[i], "|") == 0) {
+			return i;
+		}
 	}
 
-	char *new_str = add_redirection_padding(str);
+	return -1;
+}
 
-	char **tokens;
-	size_t tokens_count = create_token_list(new_str, &tokens, delimiters);
+void run_cmd(char **tokens, size_t tokens_count, char *str, char *new_str, char **dir_name) {
+	long pipe_index = get_pipe_index(tokens, tokens_count);
+	// char *pipe_index = strchr(str, '|');
 
-	if (tokens_count == 0) {
+	// char* pipe_end = strchrnul(str,'|');
+	// size_t pipe_len = pipe_end - str -1 ;
+
+	if (pipe_index != -1)	 {
+		int cmdPipe[2];
+
+    	pipe(cmdPipe);
+
+		pid_t pid = fork();
+
+		if (pid < 0) {
+			perror("fork");
+
+			return;
+		}
+
+		if (pid != 0) {
+			close(cmdPipe[0]);
+
+			int stdoutCopy = dup(STDOUT_FILENO);
+			dup2(cmdPipe[1], STDOUT_FILENO);
+			close(cmdPipe[1]);
+
+			run_cmd(tokens, pipe_index, str, new_str, dir_name);
+			// parse_input(str, dir_name);
+
+			dup2(stdoutCopy, STDOUT_FILENO);
+			close(stdoutCopy);
+
+			wait(NULL);
+
+		} else {
+			setpgrp();
+
+			close(cmdPipe[1]);
+
+			int stdinCopy = dup(STDIN_FILENO);
+			dup2(cmdPipe[0], STDIN_FILENO);
+			close(cmdPipe[0]);
+
+			run_cmd(tokens + pipe_index + 1, tokens_count - (pipe_index + 1), str, new_str, dir_name);
+			// parse_input(pipe_index + 1, dir_name);
+
+			dup2(stdinCopy, STDIN_FILENO);
+			close(stdinCopy);
+
+			exit(0);
+		}
+
 		return;
-	}
-
-	sub_home_dir(tokens, tokens_count);
+	} 
 
 	char *in_file = NULL;
 	char *out_file = NULL;
@@ -284,15 +363,32 @@ void parse_input(char *str, char **dir_name) {
 	int stdout_copy = dup(STDOUT_FILENO);
 	int stdin_copy = dup(STDIN_FILENO);
 
-	// TODO: handle open errors
 	if (in_file != NULL) {
 		close(STDIN_FILENO);
-		open(in_file, O_RDWR, file_permissions);
+
+		int res = open(in_file, O_RDWR, file_permissions);
+
+		if (res == -1) {
+			perror("open");
+			dup2(stdin_copy, STDIN_FILENO);
+			close(stdin_copy);
+
+			return;
+		}
 	}
 
 	if (out_file != NULL) {
 		close(STDOUT_FILENO);
-		open(out_file, file_mode, file_permissions);
+
+		int res = open(out_file, file_mode, file_permissions);
+
+		if (res == -1) {
+			perror("open");
+			dup2(stdout_copy, STDOUT_FILENO);
+			close(stdout_copy);
+
+			return;
+		}
 	}
 
 	size_t args_count = find_first_redirection(tokens, tokens_count);
@@ -355,11 +451,31 @@ void parse_input(char *str, char **dir_name) {
 
 	close(stdin_copy);
 	close(stdout_copy);
+}
+
+void parse_input(char *str, char **dir_name) {
+	if (strcmp(str, "\n") == 0) {
+		return;
+	}
+
+	char *new_str = add_redirection_padding(str);
+
+	char **tokens;
+	size_t tokens_count = create_token_list(new_str, &tokens, delimiters);
+
+	if (tokens_count == 0) {
+		return;
+	}
+
+	sub_home_dir(tokens, tokens_count);
+
+	run_cmd(tokens, tokens_count, str, new_str, dir_name);
 
 	free(new_str);
 	free_tokens_list(tokens,tokens_count);
 	free(tokens);
 }
+
 
 int main() {
 	char *string = NULL;
