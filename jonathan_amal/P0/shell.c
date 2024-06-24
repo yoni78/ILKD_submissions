@@ -8,6 +8,7 @@
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <pwd.h>
+#include <fcntl.h>
 
 const char delimiters[] = " \n\t\v\f\r";
 
@@ -74,18 +75,77 @@ void run_execv(char **tokens, size_t tokens_count) {
 	}
 }
 
+bool get_input_output_files(char **tokens, size_t tokens_count, char **in_file, char **out_file) {
+	// TODO: What happens in case of < < ?
+	if (strcmp(tokens[tokens_count - 1], "<") == 0 || strcmp(tokens[tokens_count - 1], ">") == 0) {
+		fprintf(stderr, "No file provided for redirection.");
+
+		return false;
+	}
+
+	for(size_t i = 0; i < tokens_count; i++) {
+		if (strcmp(tokens[i], "<") == 0) {
+			*in_file = tokens[i + 1];
+		}
+
+		if (strcmp(tokens[i], ">") == 0) {
+			*out_file = tokens[i + 1];
+		}
+	}
+
+	return true;
+}
+
 pid_t fork_and_exec(char **tokens, size_t tokens_count)
 {
+	// TODO: receive input string
+	// TODO: use function to get last < and last >
+	// TODO: use function to get first < or > (take the minimal index between them)
+	char *in_file = NULL;
+	char *out_file = NULL;
+
+	if (!get_input_output_files(tokens, tokens_count, &in_file, &out_file)) {
+		return -1;
+	}
+
+	int file_permissions = 0666;
+	int file_mode = O_CREAT | O_WRONLY | O_TRUNC;
+
+	int stdout_copy = dup(STDOUT_FILENO);
+	int stdin_copy = dup(STDIN_FILENO);
+
+	if (in_file != NULL) {
+		close(STDIN_FILENO);
+		open(in_file, file_mode, file_permissions);
+	}
+
+	if (out_file != NULL) {
+		close(STDOUT_FILENO);
+		open(out_file, file_mode, file_permissions);
+	}
+
+	for (size_t i; i < 0; i++) {
+		// TODO: get index of first > or <
+		// echo hello > out1.txt > out2.txt
+	}
+
 	pid_t pid = fork();
 
-		if (pid == 0) {
-			run_execv(tokens, tokens_count);
-			
-			exit(0);
+	if (pid == 0) {
+		run_execv(tokens, tokens_count);
 
-		} else {
-			waitpid(pid, NULL, 0);
-		}
+		exit(0);
+
+	} else {
+		waitpid(pid, NULL, 0);
+	}
+
+	dup2(stdin_copy, STDIN_FILENO);
+	dup2(stdout_copy, STDOUT_FILENO);
+
+	close(stdin_copy);
+	close(stdout_copy);
+
 	return pid;
 }
 
@@ -203,7 +263,10 @@ void parse_input(char *str, char **dir_name) {
 	if (tokens_count == 0) {
 		return;
 	}
+
 	sub_home_dir(tokens, tokens_count);
+
+	// TODO: What abour redirection from exec?
 
 	if (strcmp(tokens[0], "exit") == 0) {
 		if (tokens_count > 1) {
@@ -255,25 +318,21 @@ void parse_input(char *str, char **dir_name) {
 			tokens[0] = path;
 			fork_and_exec(tokens, tokens_count);
 			//free(path);
-			
 		}
 
 	}
+
 	free_tokens_list(tokens,tokens_count);
 	free(tokens);
 }
-
-
-
-
 
 int main() {
 	char *string = NULL;
 	size_t size = 0;
 	char *dir_name = getcwd(NULL, 0);
-
 	
 	printf("%s$ ", dir_name);
+
 	while(getline(&string, &size, stdin) != -1) {
 		parse_input(string, &dir_name);
 
