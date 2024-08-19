@@ -1,0 +1,45 @@
+In this exercise you will implement Conway's game of life.
+It is a simulation of cellular automata, you can read more about it here: https://en.wikipedia.org/wiki/Conway's_Game_of_Life
+There are various implementations of it online you can use as reference.
+
+The game will contain a 32x32 grid. Coordinate (0,0) should be the upper-left corner, and (31,31) the bottom-right corner.
+The first entry in the coordinate is the row, and the second is the column.
+
+The basic rules of the game are:
+1. Any live cell with fewer than two live neighbours dies, as if by underpopulation.
+2. Any live cell with two or three live neighbours lives on to the next generation.
+3. Any live cell with more than three live neighbours dies, as if by overpopulation.
+4. Any dead cell with exactly three live neighbours becomes a live cell, as if by reproduction.
+
+Notice that since the grid is finite, all of the liveness calculations should be modulo the grid dimensions.
+For example, if a cell is at coordinates (0,0), its neighbors are: (1,0), (0,1), (1,1), (31,0), (0,31), (31,1), (1,31), (31,31).
+
+The grid should be printed using ascii characters as such (this grid is not to scale):
+---------------
+|**         **|
+|    ***      |
+|   **  **    |
+|    ***      |
+---------------
+
+The borders are dashes (-) and pipes (|), by default, an asterisk (*) denotes a live cell and a space denotes a dead one.
+The character that denotes a live cell can be changed by the user.
+
+Syscalls specification - 
+
+open - Creates an empty grid. Only one grid can be active at a time, so calling open again without closing should return an error (EBUSY).
+The other arguments are not used. 
+
+read - Performs a "tick", meaning that it calculates the next state of the grid according to the rules above, and returns the new grid.
+The count argument is not used, since the entire grid should be returned.
+
+write - Toggles the cell currently at the seek point (dead to alive or vice versa). The buf and count arguments aren't used.
+
+lseek - Sets the seek point to the given cell, and should take a number between 0 and 1023 representing the coordinate.
+The input number 0 should correspond to (0,0), 1 to (0,1), and so on. So 1023 corresponds to (31,31), and for example 35 corresponds to (1,3).
+The whence argument should be used as usual.
+
+ioctl - Op 0 should receive another printable ascii (values 0x21-0x7e) as argument that changes the live cell character to it. If no valid char was received an error should be returned (EINVAL).
+Other ops should return an error (EPERM).
+
+close - Should reset the grid, and allow a new grid to be opened.
