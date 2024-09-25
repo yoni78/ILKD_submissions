@@ -3,7 +3,7 @@
 - [x] Add Makefile
 - [ ] Finish implementing rubiks cube logic
     - [x] Validate moves
-    - [ ] Rotate cube
+    - [x] Rotate cube
     - [ ] Check if solved
 
 - [ ] Add tests for logic

@@ -53,6 +53,32 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *of
     mutex_lock(&cube_mutex);
     // TODO: Implement read functionality for cube state
     // TODO: Return -1 and set errno on error
+    // Return -1? 
+    
+    ssize_t bytes_read = 0;
+
+    // Check if the file position is beyond the end of the cube state
+    if (*offset >= FACES*FACE_PIECES) {
+        return 0;
+    }
+
+    // Adjust count if it exceeds the remaining data
+    if (*offset + len > CUBE_SIZE) {
+        count = FACES*FACE_PIECES - *offset;
+        if(len <= 0)
+            return 0;
+    }
+
+    // Copy data to user space
+    if (copy_to_user(buffer, cube + *offset, len)) {
+        return -EFAULT;
+    }
+
+    // Update file position
+    *offset += len;
+    bytes_read = len;
+
+    return bytes_read;
     mutex_unlock(&cube_mutex);
 
     return 0;

@@ -22,6 +22,15 @@ static int cube[FACES][CUBE_SIZE][CUBE_SIZE] = {
     {{5, 5, 5}, {5, 5, 5}, {5, 5, 5}},
 };
 
+static int solved_cube[FACES][CUBE_SIZE][CUBE_SIZE] = {
+    {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}},
+    {{1, 1, 1}, {1, 1, 1}, {1, 1, 1}},
+    {{2, 2, 2}, {2, 2, 2}, {2, 2, 2}},
+    {{3, 3, 3}, {3, 3, 3}, {3, 3, 3}},
+    {{4, 4, 4}, {4, 4, 4}, {4, 4, 4}},
+    {{5, 5, 5}, {5, 5, 5}, {5, 5, 5}},
+};
+
 //UP, R, D L of each face (in that order)
 int adjacent [FACES][FACES-2] = {
     {4,3,2,1},
@@ -304,4 +313,17 @@ void init_cube(int cur_cube[CUBE_SIZE][CUBE_SIZE][CUBE_SIZE])
             }
         }
     }
+}
+
+bool is_solved()
+{
+    for (int k = 0; k < FACES; k++) {
+        for (int i = 0; i < CUBE_SIZE; i++) {
+            for (int j = 0; j < CUBE_SIZE; j++) {
+                if(cube[k][i][j] != solved_cube[k][i][j])
+                    return false;
+            }
+        }
+    }
+    return true;
 }
