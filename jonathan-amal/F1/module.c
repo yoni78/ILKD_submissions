@@ -127,6 +127,6 @@ module_init(cube_init);
 module_exit(cube_exit);
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("User");
+MODULE_AUTHOR("jonathan-amal");
 MODULE_DESCRIPTION("A Rubik's Cube Character Device Module");
 MODULE_VERSION("1.0");
