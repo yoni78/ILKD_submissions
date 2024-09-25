@@ -1,3 +1,7 @@
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
+
 #define FACES 6
 #define FACE_PIECES 9
 
@@ -25,21 +29,20 @@ void free_tokens(char **tokens, int tokens_count) {
     free(tokens);
 }
 
-// TODO: finish
 // TODO: Adapt to kernel
 char** split_string(char *str, int *count) {
     int tokens_count = 0;
-    int in_token = 0;
+    bool in_token = false;
     
     for (int i = 0; str[i] != '\0'; i++) {
-        if (isspace(str[i])) {
+        if (str[i] == ' ') {
             if (in_token) {
-                in_token = 0;
+                in_token = false;
             }
         } else {
             if (!in_token) {
                 tokens_count++;
-                in_token = 1;
+                in_token = true;
             }
         }
     }
@@ -50,12 +53,12 @@ char** split_string(char *str, int *count) {
     int length = 0;
 
     for (int i = 0; str[i] != '\0'; i++) {
-        if (isspace(str[i])) {
+        if (str[i] == ' ') {
             if (start != -1) {
-                // End of a token
                 tokens[token_index] = malloc((length + 1) * sizeof(char));
                 strncpy(tokens[token_index], &str[start], length);
-                tokens[token_index][length] = '\0';  // Null-terminate the token
+                tokens[token_index][length] = '\0';
+
                 token_index++;
                 start = -1;
                 length = 0;
@@ -64,6 +67,7 @@ char** split_string(char *str, int *count) {
             if (start == -1) {
                 start = i;
             }
+
             length++;
         }
     }
@@ -94,8 +98,4 @@ void process_moves(char *moves) {
     if (!validate_moves(moves)) {
         return;
     }
-}
-
-int main() {
-    return 0;
 }
