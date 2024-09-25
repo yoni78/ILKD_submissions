@@ -83,15 +83,31 @@ char** split_string(char *str, int *count) {
     return tokens;
 }
 
+bool is_valid_move(char move) {
+    return move == 'F' || move == 'R' || move == 'U' || move == 'L' || move == 'B' || move == 'D';
+}
+
 bool validate_moves(char *moves) {
     int tokens_count = 0;
     char **tokens = split_string(moves, &tokens_count);
+    bool is_valid = true;
 
     for (int i = 0; i < tokens_count; i++) {
-        // TODO: Check that token is only of size 2, valid character in pos 0, maybe ' in pos 1 
+        size_t token_size = strlen(tokens[i]);
+
+        bool bad_token_size = !(token_size == 1 || token_size == 2);
+        bool bad_regular_move = !is_valid_move(tokens[i][0]);
+        bool bad_reverse_move = (token_size == 2) && (tokens[i][1] != '\'');
+
+        if (bad_token_size || bad_regular_move || bad_reverse_move) {
+            is_valid = false;
+            break;
+        }
     }
 
     free_tokens(tokens, tokens_count);
+
+    return is_valid;
 }
 
 void process_moves(char *moves) {

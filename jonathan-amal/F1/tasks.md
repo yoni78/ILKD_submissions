@@ -2,7 +2,22 @@
 - [x] Create module skeleton
 - [x] Add Makefile
 - [ ] Finish implementing rubiks cube logic
+    - [x] Validate moves
+    - [ ] Rotate cube
+    - [ ] Check if solved
+
 - [ ] Add tests for logic
-- [ ] Add logic to module
+    - [x] Validate moves
+    - [ ] Rotate cube
+    - [ ] Check if solved
+
+- [ ] Finish module
+    - [ ] open
+    - [ ] ioctl
+    - [ ] write
+    - [ ] read
+    - [ ] close
+    - [ ] lseek
+
 - [ ] Test all module's functionality
 - [ ] Compare with other submissions

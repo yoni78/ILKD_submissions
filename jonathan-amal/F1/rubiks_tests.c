@@ -38,6 +38,39 @@ bool split_string_test() {
     return true;
 }
 
+bool test_validate_moves() {
+    if (!validate_moves("  F R   U  L L B D")) {
+        return false;
+    }
+
+    if (!validate_moves("F'  F R   U'  L L B D F' F' R' U' L' L' B' D'")) {
+        return false;
+    }
+
+    if (validate_moves("F R A")) {
+        return false;
+    }
+
+    if (validate_moves("f")) {
+        return false;
+    }
+
+    if (validate_moves("FF")) {
+        return false;
+    }
+
+    if (validate_moves("D!")) {
+        return false;
+    }
+    
+    if (validate_moves("FRR")) {
+        return false;
+    }
+
+    return true;
+}
+
 int main() {
     RUN_TEST(split_string_test);
+    RUN_TEST(test_validate_moves);
 }
