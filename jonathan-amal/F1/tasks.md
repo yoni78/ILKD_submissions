@@ -12,11 +12,11 @@
     - [ ] Check if solved
 
 - [ ] Finish module
-    - [ ] open
+    - [x] open
     - [ ] ioctl
-    - [ ] write
+    - [x] write
     - [ ] read
-    - [ ] close
+    - [x] close
     - [ ] lseek
 
 - [ ] Test all module's functionality
