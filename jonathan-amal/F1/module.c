@@ -3,15 +3,18 @@
 #include <linux/uaccess.h>
 #include <linux/mutex.h>
 #include <linux/ioctl.h>
+#include <linux/slab.h>
 
 #define DEVICE_NAME "cube"
 
 static int major_number;
-static char cube_state[6][9];
+static char cube[6][9];
 static DEFINE_MUTEX(cube_mutex);
 
 #define CUBE_SETUP _IOW('a', 1, unsigned short)
 #define CUBE_IS_SOLVED _IOR('a', 2, unsigned short)
+
+int process_moves(char *moves);
 
 static int __init cube_init(void) {
     major_number = register_chrdev(0, DEVICE_NAME, &fops);
@@ -33,30 +36,61 @@ static void __exit cube_exit(void) {
 }
 
 static int dev_open(struct inode *inodep, struct file *filep) {
-    mutex_lock(&cube_mutex);
     printk(KERN_INFO "Cube device opened\n");
     return 0;
 }
 
 static int dev_release(struct inode *inodep, struct file *filep) {
-    mutex_unlock(&cube_mutex);
     printk(KERN_INFO "Cube device closed\n");
     return 0;
 }
 
 static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset) {
+    mutex_lock(&cube_mutex);
     // TODO: Implement read functionality for cube state
     // TODO: Return -1 and set errno on error
+    mutex_unlock(&cube_mutex);
     return 0;
 }
 
 static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, loff_t *offset) {
-    // TODO: Implement cube rotations here
-    // TODO: Return -1 and set errno on invalid moves
-    return len;
+    sssize_t res = 0;
+
+    mutex_lock(&cube_mutex);
+    char *moves = kmalloc(len + 1, GFP_KERNEL);
+
+    if (!moves) {
+        res = -ENOMEM;
+        goto exit;
+    }
+
+    if (copy_from_user(moves, buffer, len)) {
+        res = -EINVAL; // TODO: This means that the buffer is invalid?
+        goto free_and_exit;
+    }
+
+    moves[len] = '\0';
+
+    int num_of_moves = process_moves(moves);
+
+    if (num_of_moves == -1) {
+        res = -EPERM;
+        goto free_and_exit;
+    }
+
+    res = num_of_moves;
+
+free_and_exit:
+    kfree(kbuf);
+exit:
+    mutex_unlock(&cube_mutex);
+
+    return res;
 }
 
 static long dev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {
+    mutex_lock(&cube_mutex);
+
     switch (cmd) {
         case CUBE_SETUP:
             // TODO: Handle cube setup with random moves
@@ -67,11 +101,16 @@ static long dev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {
         default:
             return -EINVAL;
     }
+    mutex_unlock(&cube_mutex);
+
     return 0;
 }
 
 static loff_t dev_lseek(struct file *filep, loff_t offset, int whence) {
+    mutex_lock(&cube_mutex);
     // TODO: Implement lseek functionality
+    mutex_unlock(&cube_mutex);
+
     return 0;
 }
 
