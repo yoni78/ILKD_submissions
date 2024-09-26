@@ -17,7 +17,7 @@
     - [x] write
     - [ ] read
     - [x] close
-    - [ ] lseek
+    - [x] lseek
 
 - [ ] Test all module's functionality
 - [ ] Compare with other submissions

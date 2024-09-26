@@ -49,6 +49,7 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *of
     mutex_lock(&cube_mutex);
     // TODO: Implement read functionality for cube state
     // TODO: Return -1 and set errno on error
+    // TODO: What to do with an out of bounds position? 
     mutex_unlock(&cube_mutex);
     return 0;
 }
@@ -108,10 +109,48 @@ static long dev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {
 
 static loff_t dev_lseek(struct file *filep, loff_t offset, int whence) {
     mutex_lock(&cube_mutex);
-    // TODO: Implement lseek functionality
+
+    loff_t new_pos = 0;
+
+    switch (whence) {
+        case SEEK_SET:
+            if (offset < 0) {
+                new_pos = -EINVAL;
+                goto exit;
+            }
+
+            new_pos = offset;
+            break;
+
+        case SEEK_CUR:
+            if (filep->f_pos + offset < 0) {
+                new_pos = -EINVAL;
+                goto exit;
+            }
+
+            new_pos = filep->f_pos + offset;
+            break;
+
+        case SEEK_END:
+            if (CUBE_SIZE + offset < 0) {
+                new_pos = -EINVAL;
+                goto exit;
+            }
+
+            new_pos = CUBE_SIZE + offset;
+            break;
+
+        default:
+            new_pos = -EINVAL;
+            goto exit;
+    }
+
+    filep->f_pos = new_pos; // TODO: Use modulo for out of bounds positions?
+
+exit:
     mutex_unlock(&cube_mutex);
 
-    return 0;
+    return new_pos;
 }
 
 static struct file_operations fops = {
