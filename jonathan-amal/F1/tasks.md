@@ -13,7 +13,7 @@
 
 - [ ] Finish module
     - [x] open
-    - [ ] ioctl
+    - [x] ioctl
     - [x] write
     - [ ] read
     - [x] close

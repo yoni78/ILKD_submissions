@@ -4,8 +4,12 @@
 #include <linux/mutex.h>
 #include <linux/ioctl.h>
 #include <linux/slab.h>
+#include <linux/random.h>
 
 #define DEVICE_NAME "cube"
+
+#define FACES 6
+#define FACE_PIECES 9
 
 static int major_number;
 static char cube[6][9];
@@ -49,8 +53,8 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *of
     mutex_lock(&cube_mutex);
     // TODO: Implement read functionality for cube state
     // TODO: Return -1 and set errno on error
-    // TODO: What to do with an out of bounds position? 
     mutex_unlock(&cube_mutex);
+
     return 0;
 }
 
@@ -89,22 +93,77 @@ exit:
     return res;
 }
 
+static void perform_random_moves(unsigned short num_of_moves) {
+    char *possible_moves[] = {"F", "L", "U", "R", "B", "D","F'", "L'", "U'", "R'", "B'", "D'"};
+
+    for (int i = 0; i < num_of_moves; i++) {
+        int move_index = get_random_int() % 12;
+
+        process_moves(possible_moves[move_index]);
+    }
+}
+
+static void cube_setup(unsigned short num_of_moves) {
+    for (int i = 0; i < FACES; i++) {
+        for (int j = 0; j < FACE_PIECES; j++) {
+            cube[i][j] = i;
+        }
+    }
+
+    perform_random_moves(num_of_moves);
+}
+
+static int is_cube_solved() {
+    for (int i = 0; i < FACES; i++) {
+        int face_color = cube[i][0];
+
+        for (int j = 1; j < FACE_PIECES; j++) {
+            if (cube[i][j] != face_color) {
+                return 0;
+            }
+        }
+    }
+    
+    return 1;
+}
+
 static long dev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {
     mutex_lock(&cube_mutex);
 
+    long res = 0;
+    unsigned short user_val = 0;
+
     switch (cmd) {
         case CUBE_SETUP:
-            // TODO: Handle cube setup with random moves
+            if (copy_from_user(&user_val, (unsigned short __user *)arg, sizeof(user_val))) {
+                res = -EFAULT;
+                goto exit;
+            }
+
+            cube_setup(user_val);
+
+            res = user_val
+
             break;
+
         case CUBE_IS_SOLVED:
-            // TODO: Return whether the cube is solved
+            user_val = is_cube_solved();
+
+            if (copy_to_user((unsigned short __user *)arg, &user_val, sizeof(user_val))) {
+                res = -EFAULT;
+                goto exit;
+            }
+
             break;
+
         default:
-            return -EINVAL;
+            res = -EINVAL;
     }
+
+exit:
     mutex_unlock(&cube_mutex);
 
-    return 0;
+    return res;
 }
 
 static loff_t dev_lseek(struct file *filep, loff_t offset, int whence) {
@@ -145,7 +204,7 @@ static loff_t dev_lseek(struct file *filep, loff_t offset, int whence) {
             goto exit;
     }
 
-    filep->f_pos = new_pos; // TODO: Use modulo for out of bounds positions?
+    filep->f_pos = new_pos;
 
 exit:
     mutex_unlock(&cube_mutex);
