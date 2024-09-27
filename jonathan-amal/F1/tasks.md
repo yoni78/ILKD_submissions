@@ -18,7 +18,7 @@
     - [x] read
     - [x] close
     - [x] lseek
+    - [ ] Move cube logic to module
 
-- [ ] Move cube logic to module
 - [ ] Test all module's functionality
 - [ ] Compare with other submissions
