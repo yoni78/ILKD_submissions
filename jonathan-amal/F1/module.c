@@ -5,13 +5,21 @@
 #include <linux/ioctl.h>
 #include <linux/slab.h>
 #include <linux/random.h>
+#include <linux/string.h>
 
 #define DEVICE_NAME "cube"
 
 #define FACES 6
 #define FACE_PIECES 9
-#define FACE_ROWS_COLS 3
-#define CUBE_SIZE FACES * FACE_PIECES
+#define CUBE_SIZE 3
+#define CUBE_PIECES FACES * FACE_PIECES
+
+#define UP 0 
+#define LEFT 1
+#define FRONT 2
+#define RIGHT 3
+#define BACK 4
+#define DOWN 5
 
 static int major_number;
 static char cube[6][9];
@@ -20,7 +28,247 @@ static DEFINE_MUTEX(cube_mutex);
 #define CUBE_SETUP _IOW('a', 1, unsigned short)
 #define CUBE_IS_SOLVED _IOR('a', 2, unsigned short)
 
-int process_moves(char *moves);
+static int cube[FACES][CUBE_SIZE][CUBE_SIZE] = {
+    {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}},
+    {{1, 1, 1}, {1, 1, 1}, {1, 1, 1}},
+    {{2, 2, 2}, {2, 2, 2}, {2, 2, 2}},
+    {{3, 3, 3}, {3, 3, 3}, {3, 3, 3}},
+    {{4, 4, 4}, {4, 4, 4}, {4, 4, 4}},
+    {{5, 5, 5}, {5, 5, 5}, {5, 5, 5}},
+};
+
+//UP, R, D L of each face (in that order)
+int adjacent [FACES][FACES-2] = {
+    {4,3,2,1},
+    {0,2,5,4},
+    {0,3,5,1},
+    {0,4,5,2},
+    {0,1,5,3},
+    {2,3,4,1},
+};
+
+void free_tokens(char **tokens, int tokens_count) {
+    for (int i = 0; i < tokens_count; i++) {
+        kfree(tokens[i]);
+    }
+
+    kfree(tokens);
+}
+
+char** split_string(char *str, int *count) {
+    int tokens_count = 0;
+    bool in_token = false;
+    
+    for (int i = 0; str[i] != '\0'; i++) {
+        if (str[i] == ' ') {
+            if (in_token) {
+                in_token = false;
+            }
+        } else {
+            if (!in_token) {
+                tokens_count++;
+                in_token = true;
+            }
+        }
+    }
+
+    char** tokens = kmalloc(tokens_count * sizeof(char*), GFP_KERNEL);
+    int token_index = 0;
+    int start = -1;
+    int length = 0;
+
+    for (int i = 0; str[i] != '\0'; i++) {
+        if (str[i] == ' ') {
+            if (start != -1) {
+                tokens[token_index] = kmalloc((length + 1) * sizeof(char), GFP_KERNEL);
+                strncpy(tokens[token_index], &str[start], length);
+                tokens[token_index][length] = '\0';
+
+                token_index++;
+                start = -1;
+                length = 0;
+            }
+        } else {
+            if (start == -1) {
+                start = i;
+            }
+
+            length++;
+        }
+    }
+
+    if (start != -1) {
+        tokens[token_index] = kmalloc((length + 1) * sizeof(char), GFP_KERNEL);
+        strncpy(tokens[token_index], &str[start], length);
+        tokens[token_index][length] = '\0';
+    }
+
+    *count = tokens_count;
+
+    return tokens;
+}
+
+bool is_valid_move(char move) {
+    return move == 'F' || move == 'R' || move == 'U' || move == 'L' || move == 'B' || move == 'D';
+}
+
+bool validate_moves(char *moves) {
+    int tokens_count = 0;
+    char **tokens = split_string(moves, &tokens_count);
+    bool is_valid = true;
+
+    for (int i = 0; i < tokens_count; i++) {
+        size_t token_size = strlen(tokens[i]);
+
+        bool bad_token_size = !(token_size == 1 || token_size == 2);
+        bool bad_regular_move = !is_valid_move(tokens[i][0]);
+        bool bad_reverse_move = (token_size == 2) && (tokens[i][1] != '\'');
+
+        if (bad_token_size || bad_regular_move || bad_reverse_move) {
+            is_valid = false;
+            break;
+        }
+    }
+
+    free_tokens(tokens, tokens_count);
+
+    return is_valid;
+}
+
+int get_face_index(char c)
+{
+    switch(c) {
+        case 'U': return 0; // Up
+        case 'L': return 1; // Left
+        case 'F': return 2; // Front
+        case 'R': return 3; // Right
+        case 'B': return 4; // Back
+        case 'D': return 5; // Down
+        default: return -1; // Invalid input
+    }
+}
+
+void rotate_clockwise(int face_index);
+void rotate_anticlockwise(int face_index);
+
+void exec_move(char* move)
+{
+    size_t token_size = strlen(move);
+    int face_index = get_face_index(move[0]);
+
+    if(token_size == 1)
+        rotate_clockwise(face_index);
+    else if (token_size == 2)
+        rotate_anticlockwise(face_index);
+}
+
+int process_moves(char *moves) {
+    if (!validate_moves(moves)) {
+        return -1;
+    }
+
+    int tokens_count = 0;
+    char **tokens = split_string(moves, &tokens_count);
+
+    for(int i = 0; i < tokens_count; i++)
+    {
+        exec_move(tokens[i]);
+    }
+
+    free_tokens(tokens, tokens_count);
+
+    return tokens_count;
+}
+
+void rotate_clockwise(int face_index)
+{
+
+    int (*face)[CUBE_SIZE] = cube[face_index];
+    int (*adj_top)[CUBE_SIZE] = cube[adjacent[face_index][0]];
+    int (*adj_right)[CUBE_SIZE] = cube[adjacent[face_index][1]];
+    int (*adj_bottom)[CUBE_SIZE] = cube[adjacent[face_index][2]];
+    int (*adj_left)[CUBE_SIZE] = cube[adjacent[face_index][3]];
+    
+    int temp[CUBE_SIZE][CUBE_SIZE];
+
+    // Copy the face to a temporary array
+    for (int i = 0; i < CUBE_SIZE; i++) {
+
+        for (int j = 0; j < CUBE_SIZE; j++) {
+            temp[i][j] = face[i][j];
+        }
+    }
+    // Rotate the face 90 degrees clockwise
+    for (int i = 0; i < CUBE_SIZE; i++) {
+        for (int j = 0; j < CUBE_SIZE; j++) {
+            face[j][CUBE_SIZE - 1 - i] = temp[i][j];
+        }
+    }
+    
+
+    // Temporary arrays to hold the edges of adjacent faces
+    int top[CUBE_SIZE], left[CUBE_SIZE], right[CUBE_SIZE], bottom[CUBE_SIZE];
+    
+    // Save the edges of adjacent faces
+    for (int i = 0; i < CUBE_SIZE; i++) {
+        top[i] = adj_top[CUBE_SIZE - 1][i]; // Bottom row of the top face
+        right[i] = adj_right[i][0]; // Left column of the right face
+        bottom[i] = adj_bottom[0][i]; // Top row of the bottom face
+        left[i] = adj_left[CUBE_SIZE - 1 - i][CUBE_SIZE - 1]; // Right column of the left face
+    }
+    
+    // Update the edges of adjacent faces
+    for (int i = 0; i < CUBE_SIZE; i++) {
+        adj_top[CUBE_SIZE - 1][i] = left[i]; // Bottom row of the top face
+        adj_left[i][CUBE_SIZE - 1] = bottom[i]; // Right column of the left face
+        adj_right[i][0] = top[i]; // Left column of the right face
+        adj_bottom[0][CUBE_SIZE-1-i] = right[i]; // Top row of the bottom face
+    }
+}
+
+void rotate_anticlockwise(int face_index)
+{
+    int (*face)[CUBE_SIZE] = cube[face_index];
+    int (*adj_top)[CUBE_SIZE] = cube[adjacent[face_index][0]];
+    int (*adj_right)[CUBE_SIZE] = cube[adjacent[face_index][1]];
+    int (*adj_bottom)[CUBE_SIZE] = cube[adjacent[face_index][2]];
+    int (*adj_left)[CUBE_SIZE] = cube[adjacent[face_index][3]];
+
+    int temp[CUBE_SIZE][CUBE_SIZE];
+
+    // Copy the face to a temporary array
+    for (int i = 0; i < CUBE_SIZE; i++) {
+
+        for (int j = 0; j < CUBE_SIZE; j++) {
+            temp[i][j] = face[i][j];
+        }
+    }
+    // Rotate the face 90 degrees clockwise
+    for (int i = 0; i < CUBE_SIZE; i++) {
+        for (int j = 0; j < CUBE_SIZE; j++) {
+            face[CUBE_SIZE - 1 - j][i] = temp[i][j];
+        }
+    }
+
+    // Temporary arrays to hold the edges of adjacent faces
+    int top[CUBE_SIZE], left[CUBE_SIZE], right[CUBE_SIZE], bottom[CUBE_SIZE];
+
+    // Save the edges of adjacent faces
+    for (int i = 0; i < CUBE_SIZE; i++) {
+        top[i] = adj_top[CUBE_SIZE - 1][i]; // Bottom row of the top face
+        right[i] = adj_right[i][0]; // Left column of the right face
+        bottom[i] = adj_bottom[0][i]; // Top row of the bottom face
+        left[i] = adj_left[i][CUBE_SIZE - 1]; // Right column of the left face
+    }
+
+    // Update the edges of adjacent faces
+    for (int i = 0; i < CUBE_SIZE; i++) {
+        adj_top[CUBE_SIZE - 1][i] = right[i]; // Bottom row of the top face
+        adj_left[CUBE_SIZE - 1 - i][CUBE_SIZE - 1] = top[i]; // Right column of the left face
+        adj_right[i][0] = bottom[CUBE_SIZE - 1 - i]; // Left column of the right face
+        adj_bottom[0][i] = left[i]; // Top row of the bottom face
+    }
+}
 
 static int __init cube_init(void) {
     major_number = register_chrdev(0, DEVICE_NAME, &fops);
@@ -52,7 +300,7 @@ static int dev_release(struct inode *inodep, struct file *filep) {
 }
 
 char *convert_cube_to_string() {
-    char *cube_str = kmalloc(CUBE_SIZE + 1, GFP_KERNEL);
+    char *cube_str = kmalloc(CUBE_PIECES + 1, GFP_KERNEL);
 
     if (!cube_str) {
         return NULL;
@@ -61,20 +309,20 @@ char *convert_cube_to_string() {
     int index = 0;
 
     for (int face = 0; face < FACES; face++) {
-        for (int row = 0; row < FACE_ROWS_COLS; row++) {
-            for (int col = 0; col < FACE_ROWS_COLS; col++) {
+        for (int row = 0; row < CUBE_SIZE; row++) {
+            for (int col = 0; col < CUBE_SIZE; col++) {
                 cube_str[index++] = '0' + cube[face][row][col];
             }
         }
     }
 
-    cube_str[CUBE_SIZE] = '\0';
+    cube_str[CUBE_PIECES] = '\0';
 
     return cube_str;
 }
 
 static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset) {
-    if (len == 0 || *offset >= CUBE_SIZE) {
+    if (len == 0 || *offset >= CUBE_PIECES) {
         return 0;
     }
 
@@ -82,8 +330,8 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *of
 
     ssize_t bytes_read = 0;
 
-    if (*offset + len > CUBE_SIZE) {
-        len = CUBE_SIZE - *offset;
+    if (*offset + len > CUBE_PIECES) {
+        len = CUBE_PIECES - *offset;
     }
 
     char *cube_str = convert_cube_to_string();
@@ -152,7 +400,7 @@ static void perform_random_moves(unsigned short num_of_moves) {
     for (int i = 0; i < num_of_moves; i++) {
         int move_index = get_random_int() % 12;
 
-        process_moves(possible_moves[move_index]);
+        exec_move(possible_moves[move_index]);
     }
 }
 
@@ -244,12 +492,12 @@ static loff_t dev_lseek(struct file *filep, loff_t offset, int whence) {
             break;
 
         case SEEK_END:
-            if (CUBE_SIZE + offset < 0) {
+            if (CUBE_PIECES + offset < 0) {
                 new_pos = -EINVAL;
                 goto exit;
             }
 
-            new_pos = CUBE_SIZE + offset;
+            new_pos = CUBE_PIECES + offset;
             break;
 
         default:

@@ -11,14 +11,14 @@
     - [ ] Rotate cube
     - [ ] Check if solved
 
-- [ ] Finish module
+- [x] Finish module
     - [x] open
     - [x] ioctl
     - [x] write
     - [x] read
     - [x] close
     - [x] lseek
-    - [ ] Move cube logic to module
+    - [x] Move cube logic to module
 
 - [ ] Test all module's functionality
 - [ ] Compare with other submissions
