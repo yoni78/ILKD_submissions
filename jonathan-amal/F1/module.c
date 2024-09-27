@@ -10,6 +10,8 @@
 
 #define FACES 6
 #define FACE_PIECES 9
+#define FACE_ROWS_COLS 3
+#define CUBE_SIZE FACES * FACE_PIECES
 
 static int major_number;
 static char cube[6][9];
@@ -49,39 +51,63 @@ static int dev_release(struct inode *inodep, struct file *filep) {
     return 0;
 }
 
-static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset) {
-    mutex_lock(&cube_mutex);
-    // TODO: Implement read functionality for cube state
-    // TODO: Return -1 and set errno on error
-    // Return -1? 
-    
-    ssize_t bytes_read = 0;
+char *convert_cube_to_string() {
+    char *cube_str = kmalloc(CUBE_SIZE + 1, GFP_KERNEL);
 
-    // Check if the file position is beyond the end of the cube state
-    if (*offset >= FACES*FACE_PIECES) {
+    if (!cube_str) {
+        return NULL;
+    }
+
+    int index = 0;
+
+    for (int face = 0; face < FACES; face++) {
+        for (int row = 0; row < FACE_ROWS_COLS; row++) {
+            for (int col = 0; col < FACE_ROWS_COLS; col++) {
+                cube_str[index++] = '0' + cube[face][row][col];
+            }
+        }
+    }
+
+    cube_str[CUBE_SIZE] = '\0';
+
+    return cube_str;
+}
+
+static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset) {
+    if (len == 0 || *offset >= CUBE_SIZE) {
         return 0;
     }
 
-    // Adjust count if it exceeds the remaining data
+    mutex_lock(&cube_mutex);
+
+    ssize_t bytes_read = 0;
+
     if (*offset + len > CUBE_SIZE) {
-        count = FACES*FACE_PIECES - *offset;
-        if(len <= 0)
-            return 0;
+        len = CUBE_SIZE - *offset;
     }
 
-    // Copy data to user space
-    if (copy_to_user(buffer, cube + *offset, len)) {
-        return -EFAULT;
+    char *cube_str = convert_cube_to_string();
+
+    if (!cube_str) {
+        bytes_read = -ENOMEM;
+        goto exit;
     }
 
-    // Update file position
+    if (copy_to_user(buffer, cube_str + *offset, len)) {
+        bytes_read = -EFAULT;
+        goto free_and_exit;
+    }
+
     *offset += len;
     bytes_read = len;
 
-    return bytes_read;
+free_and_exit:
+    kfree(cube_str);
+
+exit:
     mutex_unlock(&cube_mutex);
 
-    return 0;
+    return bytes_read;
 }
 
 static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, loff_t *offset) {
@@ -112,7 +138,8 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, lof
     res = num_of_moves;
 
 free_and_exit:
-    kfree(kbuf);
+    kfree(moves);
+
 exit:
     mutex_unlock(&cube_mutex);
 
