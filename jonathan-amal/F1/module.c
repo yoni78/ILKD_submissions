@@ -182,13 +182,12 @@ int process_moves(char *moves) {
 
 void rotate_clockwise(int face_index)
 {
-
     int (*face)[CUBE_SIZE] = cube[face_index];
     int (*adj_top)[CUBE_SIZE] = cube[adjacent[face_index][0]];
     int (*adj_right)[CUBE_SIZE] = cube[adjacent[face_index][1]];
     int (*adj_bottom)[CUBE_SIZE] = cube[adjacent[face_index][2]];
     int (*adj_left)[CUBE_SIZE] = cube[adjacent[face_index][3]];
-    
+
     int temp[CUBE_SIZE][CUBE_SIZE];
 
     // Copy the face to a temporary array
@@ -198,17 +197,17 @@ void rotate_clockwise(int face_index)
             temp[i][j] = face[i][j];
         }
     }
+
     // Rotate the face 90 degrees clockwise
     for (int i = 0; i < CUBE_SIZE; i++) {
         for (int j = 0; j < CUBE_SIZE; j++) {
             face[j][CUBE_SIZE - 1 - i] = temp[i][j];
         }
     }
-    
 
     // Temporary arrays to hold the edges of adjacent faces
     int top[CUBE_SIZE], left[CUBE_SIZE], right[CUBE_SIZE], bottom[CUBE_SIZE];
-    
+
     // Save the edges of adjacent faces
     for (int i = 0; i < CUBE_SIZE; i++) {
         top[i] = adj_top[CUBE_SIZE - 1][i]; // Bottom row of the top face
@@ -216,7 +215,7 @@ void rotate_clockwise(int face_index)
         bottom[i] = adj_bottom[0][i]; // Top row of the bottom face
         left[i] = adj_left[CUBE_SIZE - 1 - i][CUBE_SIZE - 1]; // Right column of the left face
     }
-    
+
     // Update the edges of adjacent faces
     for (int i = 0; i < CUBE_SIZE; i++) {
         adj_top[CUBE_SIZE - 1][i] = left[i]; // Bottom row of the top face
