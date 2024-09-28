@@ -294,7 +294,7 @@ static void rotate_anticlockwise(int face_index)
 static char * devnode(const struct device *dev, umode_t * mode)
 {
     if (mode) {
-        *mode = 0666;
+        *mode = 0644;
     }
 
     return NULL;
