@@ -30,8 +30,8 @@ static struct cdev cube_dev;
 static struct class *class;
 static DEFINE_MUTEX(cube_mutex);
 
-#define CUBE_SETUP _IOW('a', 1, unsigned short)
-#define CUBE_IS_SOLVED _IOR('a', 2, unsigned short)
+#define CUBE_SETUP _IOW('c', 1, unsigned short)
+#define CUBE_IS_SOLVED _IOR('c', 2, unsigned short)
 
 static int dev_open(struct inode *inodep, struct file *filep);
 static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset);
@@ -518,8 +518,6 @@ static long dev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {
             }
 
             cube_setup(user_val);
-
-            res = user_val;
 
             break;
 
