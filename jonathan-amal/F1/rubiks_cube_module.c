@@ -6,6 +6,9 @@
 #include <linux/slab.h>
 #include <linux/random.h>
 #include <linux/string.h>
+#include <linux/errname.h>
+#include <linux/kdev_t.h>
+#include <linux/cdev.h>
 
 #define DEVICE_NAME "cube"
 
@@ -21,12 +24,29 @@
 #define BACK 4
 #define DOWN 5
 
-static int major_number;
-static char cube[6][9];
+static dev_t major_number;
+static struct cdev cube_dev;
 static DEFINE_MUTEX(cube_mutex);
 
 #define CUBE_SETUP _IOW('a', 1, unsigned short)
 #define CUBE_IS_SOLVED _IOR('a', 2, unsigned short)
+
+static int dev_open(struct inode *inodep, struct file *filep);
+static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset);
+static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, loff_t *offset);
+static long dev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg);
+static loff_t dev_lseek(struct file *filep, loff_t offset, int whence);
+static int dev_release(struct inode *inodep, struct file *filep);
+
+static struct file_operations fops = {
+    .owner = THIS_MODULE,
+    .open = dev_open,
+    .read = dev_read,
+    .write = dev_write,
+    .unlocked_ioctl = dev_ioctl,
+    .release = dev_release,
+    .llseek = dev_lseek
+};
 
 static int cube[FACES][CUBE_SIZE][CUBE_SIZE] = {
     {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}},
@@ -47,7 +67,7 @@ int adjacent [FACES][FACES-2] = {
     {2,3,4,1},
 };
 
-void free_tokens(char **tokens, int tokens_count) {
+static void free_tokens(char **tokens, int tokens_count) {
     for (int i = 0; i < tokens_count; i++) {
         kfree(tokens[i]);
     }
@@ -55,7 +75,7 @@ void free_tokens(char **tokens, int tokens_count) {
     kfree(tokens);
 }
 
-char** split_string(char *str, int *count) {
+static char** split_string(char *str, int *count) {
     int tokens_count = 0;
     bool in_token = false;
     
@@ -108,11 +128,11 @@ char** split_string(char *str, int *count) {
     return tokens;
 }
 
-bool is_valid_move(char move) {
+static bool is_valid_move(char move) {
     return move == 'F' || move == 'R' || move == 'U' || move == 'L' || move == 'B' || move == 'D';
 }
 
-bool validate_moves(char *moves) {
+static bool validate_moves(char *moves) {
     int tokens_count = 0;
     char **tokens = split_string(moves, &tokens_count);
     bool is_valid = true;
@@ -135,7 +155,7 @@ bool validate_moves(char *moves) {
     return is_valid;
 }
 
-int get_face_index(char c)
+static int get_face_index(char c)
 {
     switch(c) {
         case 'U': return 0; // Up
@@ -148,10 +168,10 @@ int get_face_index(char c)
     }
 }
 
-void rotate_clockwise(int face_index);
-void rotate_anticlockwise(int face_index);
+static void rotate_clockwise(int face_index);
+static void rotate_anticlockwise(int face_index);
 
-void exec_move(char* move)
+static void exec_move(char* move)
 {
     size_t token_size = strlen(move);
     int face_index = get_face_index(move[0]);
@@ -162,7 +182,7 @@ void exec_move(char* move)
         rotate_anticlockwise(face_index);
 }
 
-int process_moves(char *moves) {
+static int process_moves(char *moves) {
     if (!validate_moves(moves)) {
         return -1;
     }
@@ -180,7 +200,7 @@ int process_moves(char *moves) {
     return tokens_count;
 }
 
-void rotate_clockwise(int face_index)
+static void rotate_clockwise(int face_index)
 {
     int (*face)[CUBE_SIZE] = cube[face_index];
     int (*adj_top)[CUBE_SIZE] = cube[adjacent[face_index][0]];
@@ -225,7 +245,7 @@ void rotate_clockwise(int face_index)
     }
 }
 
-void rotate_anticlockwise(int face_index)
+static void rotate_anticlockwise(int face_index)
 {
     int (*face)[CUBE_SIZE] = cube[face_index];
     int (*adj_top)[CUBE_SIZE] = cube[adjacent[face_index][0]];
@@ -270,35 +290,41 @@ void rotate_anticlockwise(int face_index)
 }
 
 static int __init cube_init(void) {
-    major_number = register_chrdev(0, DEVICE_NAME, &fops);
+    int ret = alloc_chrdev_region(&major_number, 0, 1, DEVICE_NAME);
 
-    if (major_number < 0) {
-        printk(KERN_ALERT "Cube failed to register a major number\n");
-        return major_number;
+    if (ret < 0) {
+        pr_err("Unable to allocate cube device: %d (%s)\n", ret, errname(ret));
+        return ret;
     }
 
+    cdev_init(&cube_dev, &fops);
+    cdev_add(&cube_dev, major_number, 1);
+
     mutex_init(&cube_mutex);
-    printk(KERN_INFO "Cube device initialized\n");
+    pr_info("Cube device initialized\n");
+
     return 0;
 }
 
 static void __exit cube_exit(void) {
     mutex_destroy(&cube_mutex);
-    unregister_chrdev(major_number, DEVICE_NAME);
-    printk(KERN_INFO "Cube device exited\n");
+    unregister_chrdev_region(major_number, 1);
+    cdev_del(&cube_dev);
+
+    pr_info("Cube device exited\n");
 }
 
 static int dev_open(struct inode *inodep, struct file *filep) {
-    printk(KERN_INFO "Cube device opened\n");
+    pr_info("Cube device opened\n");
     return 0;
 }
 
 static int dev_release(struct inode *inodep, struct file *filep) {
-    printk(KERN_INFO "Cube device closed\n");
+    pr_info("Cube device closed\n");
     return 0;
 }
 
-char *convert_cube_to_string() {
+static char *convert_cube_to_string(void) {
     char *cube_str = kmalloc(CUBE_PIECES + 1, GFP_KERNEL);
 
     if (!cube_str) {
@@ -358,7 +384,7 @@ exit:
 }
 
 static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, loff_t *offset) {
-    sssize_t res = 0;
+    ssize_t res = 0;
 
     mutex_lock(&cube_mutex);
     char *moves = kmalloc(len + 1, GFP_KERNEL);
@@ -397,7 +423,7 @@ static void perform_random_moves(unsigned short num_of_moves) {
     char *possible_moves[] = {"F", "L", "U", "R", "B", "D","F'", "L'", "U'", "R'", "B'", "D'"};
 
     for (int i = 0; i < num_of_moves; i++) {
-        int move_index = get_random_int() % 12;
+        int move_index = get_random_u8() % 12;
 
         exec_move(possible_moves[move_index]);
     }
@@ -405,21 +431,25 @@ static void perform_random_moves(unsigned short num_of_moves) {
 
 static void cube_setup(unsigned short num_of_moves) {
     for (int i = 0; i < FACES; i++) {
-        for (int j = 0; j < FACE_PIECES; j++) {
-            cube[i][j] = i;
+        for (int j = 0; j < CUBE_SIZE; j++) {
+            for (int k = 0; k < CUBE_SIZE; k++) {
+                cube[i][j][k] = i;
+            }
         }
     }
 
     perform_random_moves(num_of_moves);
 }
 
-static int is_cube_solved() {
+static int is_cube_solved(void) {
     for (int i = 0; i < FACES; i++) {
-        int face_color = cube[i][0];
+        int face_color = cube[i][0][0];
 
-        for (int j = 1; j < FACE_PIECES; j++) {
-            if (cube[i][j] != face_color) {
-                return 0;
+        for (int j = 0; j < CUBE_SIZE; j++) {
+            for (int k = 0; k < CUBE_SIZE; k++) {
+                if (cube[i][j][k] != face_color) {
+                    return 0;
+                }
             }
         }
     }
@@ -442,7 +472,7 @@ static long dev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {
 
             cube_setup(user_val);
 
-            res = user_val
+            res = user_val;
 
             break;
 
@@ -511,15 +541,6 @@ exit:
 
     return new_pos;
 }
-
-static struct file_operations fops = {
-    .open = dev_open,
-    .read = dev_read,
-    .write = dev_write,
-    .unlocked_ioctl = dev_ioctl,
-    .release = dev_release,
-    .llseek = dev_lseek
-};
 
 module_init(cube_init);
 module_exit(cube_exit);
