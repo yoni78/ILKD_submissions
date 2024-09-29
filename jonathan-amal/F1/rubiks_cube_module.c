@@ -7,11 +7,10 @@
 #include <linux/random.h>
 #include <linux/string.h>
 #include <linux/errname.h>
-#include <linux/kdev_t.h>
-#include <linux/cdev.h>
+#include <linux/miscdevice.h>
 
 #define DEVICE_NAME "cube"
-#define CLASS_NAME "cube"
+#define DEVICE_PERMISSIONS 0644
 
 #define FACES 6
 #define FACE_PIECES 9
@@ -25,9 +24,6 @@
 #define BACK 4
 #define DOWN 5
 
-static dev_t major_number;
-static struct cdev cube_dev;
-static struct class *class;
 static DEFINE_MUTEX(cube_mutex);
 
 #define CUBE_SETUP _IOW('c', 1, unsigned short)
@@ -48,6 +44,13 @@ static struct file_operations fops = {
     .unlocked_ioctl = dev_ioctl,
     .release = dev_release,
     .llseek = dev_lseek
+};
+
+static struct miscdevice cube_device = {
+    .name = DEVICE_NAME,
+    .mode = DEVICE_PERMISSIONS,
+    .minor = MISC_DYNAMIC_MINOR,
+    .fops = &fops
 };
 
 static int cube[FACES][CUBE_SIZE][CUBE_SIZE] = {
@@ -623,72 +626,26 @@ void rotate_anticlockwise_adjacent_faces_down()
     };
 }
 
-static char * devnode(const struct device *dev, umode_t * mode)
-{
-    if (mode) {
-        *mode = 0644;
-    }
-
-    return NULL;
-}
-
 static int __init cube_init(void) {
     int ret = 0;
 
-    if ((ret = alloc_chrdev_region(&major_number, 0, 1, DEVICE_NAME))) {
-        pr_err("Unable to allocate cube device: %s\n", errname(ret));
-        goto err_alloc_chrdev_region;
-    }
+    ret = misc_register(&cube_device);
 
-    class = class_create(CLASS_NAME);
-
-    if (IS_ERR(class)) {
-        ret = PTR_ERR(class);
-        pr_err("Failed to create device class: %s\n", errname(ret));
-        goto err_class_create;
-    }
-
-    class->devnode = devnode;
-
-    cdev_init(&cube_dev, &fops);
-
-    if ((ret = cdev_add(&cube_dev, major_number, 1))) {
-        pr_err("Failed to add cdev: %s\n", errname(ret));
-        goto err_cdev_add;
-    }
-
-    struct device *dev = device_create(class, NULL, major_number, NULL, DEVICE_NAME);
-
-    if (IS_ERR(dev)) {
-        ret = PTR_ERR(dev);
-        pr_err("Failed to create device: %s\n", errname(ret));
-        goto err_device_create;
+    if (ret) {
+        pr_err("Failed to register cube device: %s\n", errname(ret));
+        return ret;
     }
 
     mutex_init(&cube_mutex);
     pr_info("Cube device initialized\n");
 
-    return 0;
-
-err_device_create:
-    device_destroy(class, major_number);
-
-err_cdev_add:
-    class_destroy(class);
-
-err_class_create:
-    unregister_chrdev_region(major_number, 1);
-
-err_alloc_chrdev_region:
     return ret;
 }
 
 static void __exit cube_exit(void) {
     mutex_destroy(&cube_mutex);
-    device_destroy(class, major_number);
-    class_destroy(class);
-    unregister_chrdev_region(major_number, 1);
-    cdev_del(&cube_dev);
+
+    misc_deregister(&cube_device);
 
     pr_info("Cube device exited\n");
 }
