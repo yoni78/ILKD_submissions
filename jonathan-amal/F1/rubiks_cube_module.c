@@ -508,9 +508,9 @@ void rotate_anticlockwise_adjacent_faces_right()
     
     // Update the edges of adjacent faces
     for (int i = 0; i < CUBE_SIZE; i++) {
-        adj_top[i][CUBE_SIZE-1] = right[i]; 
+        adj_top[CUBE_SIZE-i-1][CUBE_SIZE-1] = right[i]; 
         adj_right[CUBE_SIZE-i-1][0] = bottom[i]; 
-        adj_bottom[CUBE_SIZE-i-1][CUBE_SIZE-1] = left[i]; 
+        adj_bottom[i][CUBE_SIZE-1] = left[i]; 
         adj_left[i][CUBE_SIZE-1] = top[i]; 
     }
 }
@@ -536,9 +536,9 @@ void rotate_anticlockwise_adjacent_faces_front()
     // Update the edges of adjacent faces
     for (int i = 0; i < CUBE_SIZE; i++) {
         adj_top[CUBE_SIZE - 1][i] = right[i]; // Bottom row of the top face
-        adj_left[i][CUBE_SIZE - 1] = top[i]; // Right column of the left face
-        adj_right[i][0] = bottom[i]; // Left column of the right face
-        adj_bottom[0][CUBE_SIZE-1-i] = left[i]; // Top row of the bottom face
+        adj_left[CUBE_SIZE-i-1][CUBE_SIZE - 1] = top[i]; // Right column of the left face
+        adj_right[CUBE_SIZE-i-1][0] = bottom[i]; // Left column of the right face
+        adj_bottom[0][i] = left[i]; // Top row of the bottom face
     }
 }
 
@@ -562,10 +562,10 @@ void rotate_anticlockwise_adjacent_faces_back()
     
     // Update the edges of adjacent faces
     for (int i = 0; i < CUBE_SIZE; i++) {
-        adj_top[0][i] = right[i]; 
-        adj_right[CUBE_SIZE-i-1][0] = bottom[i]; 
-        adj_bottom[CUBE_SIZE-1][i] = left[i]; 
-        adj_left[CUBE_SIZE-i-1][CUBE_SIZE-1] = top[i]; 
+        adj_top[0][CUBE_SIZE-i-1] = right[i]; 
+        adj_right[i][0] = bottom[i]; 
+        adj_bottom[CUBE_SIZE-1][CUBE_SIZE-i-1] = left[i]; 
+        adj_left[i][CUBE_SIZE-1] = top[i]; 
     }
 }
 
@@ -589,9 +589,9 @@ void rotate_anticlockwise_adjacent_faces_left()
     
     // Update the edges of adjacent faces
     for (int i = 0; i < CUBE_SIZE; i++) {
-        adj_top[CUBE_SIZE-i-1][0] = right[i]; 
+        adj_top[i][0] = right[i]; 
         adj_right[i][0] = bottom[i]; 
-        adj_bottom[i][0] = left[i]; 
+        adj_bottom[CUBE_SIZE-i-1][0] = left[i]; 
         adj_left[CUBE_SIZE-i-1][CUBE_SIZE-1] = top[i]; 
     }
 }
