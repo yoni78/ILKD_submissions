@@ -626,7 +626,7 @@ void rotate_anticlockwise_adjacent_faces_down()
 static char * devnode(const struct device *dev, umode_t * mode)
 {
     if (mode) {
-        *mode = 0666;
+        *mode = 0644;
     }
 
     return NULL;
