@@ -10,6 +10,9 @@
 #include <grp.h>
 #include <errno.h>
 #include <string.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #define NUMBERS_ASCII_OFFSET 48
 
@@ -65,6 +68,16 @@ static const char *const MOVE_STR[] = { "U",  "L",  "F",  "R",	"B",  "D",
 int test_count;
 int test_passed;
 bool should_bail;
+
+// Some expected outputs
+static char * Consecutive_Writes_Out[] = {
+	"000000111115115115222222222033033033444444444333555555", // F
+	"002002112115115115223225225000333333144044044334554554", // R
+	"100100222223115115000225225144333333115044044334554554", // U
+	"400400522112112553100125225144333333115045043034254254", // L
+	"433400522012012453100125225144335332001441355034254115", // B
+	"433400522012012355100125453144335225001441332120153544", //D
+};
 
 void ok(bool condition, const char *description)
 {
@@ -503,6 +516,7 @@ void test_rotation(enum cube_moves move, char *expected_final_state)
 	close(fd);
 }
 
+
 TEST(write_test_rotate_front)
 {
 	test_rotation(front,
@@ -818,6 +832,412 @@ TEST(ioctl_cube_is_solved_invalid_input)
 	close(fd);
 }
 
+/* New Tests */
+//added 7 new tests
+
+TEST(consecutive_writes_multiple_calls)
+{
+	//call write several times
+	int fd = open_cube_file();
+
+	if (fd == -1) {
+		ok(fd != -1, "cube file open");
+		return;
+	}
+	char *moves = "F R U L B D";
+	int move_size = 1;
+
+	unsigned short setup_moves = 0;
+	ioctl(fd, CUBE_SETUP, &setup_moves);
+
+	for(int i=0; i< 6; i++)
+	{
+		char* move_str = moves + i*2;
+		int res = write(fd, move_str, move_size);
+	
+		if (res != 1) {
+			char error_message[500];
+
+			sprintf(error_message,
+				"write move did not run 1 move when sent %s, run %d moves",
+				move_str, res);
+			ok(false, error_message);
+			close(fd);
+			return;
+		}
+		char cube_after[CUBE_SIZE + 1];
+
+		res = read(fd, cube_after, CUBE_SIZE);
+
+		cube_after[CUBE_SIZE] = '\0';
+
+		if (res != CUBE_SIZE) {
+			ok(res == CUBE_SIZE, "read cube file wrong size");
+			close(fd);
+			return;
+		}
+		long cube_size = CUBE_SIZE;
+		char error_message[500];
+
+		sprintf(error_message,
+			"Test for rotations of types %s, got %s and expected %s",
+			move_str, cube_after, Consecutive_Writes_Out[i]);
+		ok(memcmp(Consecutive_Writes_Out[i], cube_after, cube_size) == 0,
+		error_message);
+		close(fd);
+		return;
+	}
+}
+
+TEST(consecutive_writes_one_call)
+{
+	//call write once
+	int fd = open_cube_file();
+
+	if (fd == -1) {
+		ok(fd != -1, "cube file open");
+		return;
+	}
+	const char *move_str = "F R U L B D";
+	int move_size = strlen(move_str);
+
+	unsigned short setup_moves = 0;
+	ioctl(fd, CUBE_SETUP, &setup_moves);
+
+	int res = write(fd, move_str, move_size);
+	
+	if (res != 6) {
+		char error_message[500];
+
+		sprintf(error_message,
+			"write move did not run 1 move when sent %s, run %d moves",
+			move_str, res);
+		ok(false, error_message);
+		close(fd);
+		return;
+	}
+	char cube_after[CUBE_SIZE + 1];
+
+	res = read(fd, cube_after, CUBE_SIZE);
+
+	cube_after[CUBE_SIZE] = '\0';
+
+	if (res != CUBE_SIZE) {
+		ok(res == CUBE_SIZE, "read cube file wrong size");
+		close(fd);
+		return;
+	}
+	long cube_size = CUBE_SIZE;
+	char error_message[500];
+
+	sprintf(error_message,
+		"Test for rotation of type %s, got %s and expected %s",
+		move_str, cube_after, Consecutive_Writes_Out[5]);
+	ok(memcmp(Consecutive_Writes_Out[5], cube_after, cube_size) == 0,
+	error_message);
+	close(fd);
+	return;
+	
+}
+
+TEST(read_from_child)
+{
+	pid_t pid = fork();  // Create a child process
+
+    if (pid < 0) {
+		// If fork() returns a negative value, the creation of a child process failed
+		ok(pid >= 0 , "Fork failed");
+		return;
+    }
+    if (pid == 0) {
+		// This is the child process
+
+		int fd = open_cube_file();
+
+		if (fd == -1) {
+			exit(3);
+		}
+		
+		char cube_after[CUBE_SIZE + 1];
+
+		int res = read(fd, cube_after, CUBE_SIZE);
+
+		cube_after[CUBE_SIZE] = '\0';
+
+		if (res != CUBE_SIZE) {
+			ok(res == CUBE_SIZE, "read cube file wrong size");
+			close(fd);
+			exit(2);;
+		}
+		long cube_size = CUBE_SIZE;
+		
+
+		if(memcmp(Consecutive_Writes_Out[5], cube_after, cube_size) == 0)
+		{
+			close(fd);
+			exit(0);
+		}
+		
+		exit(1);  // Terminate the child process
+    }
+    else {
+		// This is the parent process
+		int status;
+		waitpid(pid, &status, 0);  // Wait for the child process to finish
+		char description[500];
+		sprintf(description,
+			"Child process performs read on cube, expected %s", Consecutive_Writes_Out[5]);
+		ok(WEXITSTATUS(status)== 0, description);
+		
+	}
+}
+
+TEST(write_from_child)
+{
+	int fd = open_cube_file();
+
+	if (fd == -1) {
+		ok(fd != -1, "cube file open");
+		return;
+	}
+	pid_t pid = fork();  // Create a child process
+
+    if (pid < 0) {
+		// If fork() returns a negative value, the creation of a child process failed
+		ok(pid >= 0 , "Fork failed");
+		return;
+    }
+    if (pid == 0) {
+		// This is the child process
+		const char *move_str = "D'";
+		int move_size = strlen(move_str);
+
+		//unsigned short setup_moves = 0;
+		//ioctl(fd, CUBE_SETUP, &setup_moves);
+
+		int res = write(fd, move_str, move_size);
+	
+		if (res != 1) {
+	//		printf("\n\nn\n\ncaligula\n\n\n");
+			close(fd);
+			exit(1);
+		}
+		
+		exit(0);  // Terminate the child process
+    }
+    else {
+		// This is the parent process
+		
+		int status;
+        waitpid(pid, &status, 0);  // Wait for the child process to finish
+
+        if (WEXITSTATUS(status)==0) {
+			char cube_after[CUBE_SIZE + 1];
+
+			int res = read(fd, cube_after, CUBE_SIZE);
+
+			cube_after[CUBE_SIZE] = '\0';
+
+			if (res != CUBE_SIZE) {
+				ok(res == CUBE_SIZE, "read cube file wrong size");
+				close(fd);
+				return;
+			}
+			long cube_size = CUBE_SIZE;
+			char error_message[500];
+
+			sprintf(error_message,
+				"Test for write by child process, got %s and expected %s",
+				cube_after, Consecutive_Writes_Out[4]);
+			ok(memcmp(Consecutive_Writes_Out[4], cube_after, cube_size) == 0,
+			error_message);
+			close(fd);
+
+        }
+		else
+		{
+			ok(false, "Write by child");
+		}
+	}
+}
+
+TEST(ioctl_from_child)
+{
+	int fd = open_cube_file();
+
+	if (fd == -1) {
+		ok(fd != -1, "cube file open");
+		return;
+	}
+	pid_t pid = fork();  // Create a child process
+
+    if (pid < 0) {
+		// If fork() returns a negative value, the creation of a child process failed
+
+		ok(pid >= 0 , "Fork failed");
+		return;
+    }
+    if (pid == 0) {
+		// This is the child process
+
+		unsigned short setup_moves = 0;
+		ioctl(fd, CUBE_SETUP, &setup_moves);
+		exit(0);  // Terminate the child process
+    }
+    else {
+		// This is the parent process
+		waitpid(pid, NULL, 0);  // Wait for the child process to finish
+		
+		unsigned short is_solved;
+		int result = ioctl(fd, CUBE_IS_SOLVED, &is_solved);
+		
+		ok(result == 0 && is_solved == 1,
+	   	"check if cube is solved after 0 moves performed by child process (expected: 1)");
+		close(fd);
+
+	}
+}
+
+TEST(write_with_multiple_spaces)
+{
+	//call write once
+	int fd = open_cube_file();
+
+	if (fd == -1) {
+		ok(fd != -1, "cube file open");
+		return;
+	}
+	const char *move_str = "    F   R  U   L  B D  ";
+	int move_size = strlen(move_str);
+
+	unsigned short setup_moves = 0;
+	ioctl(fd, CUBE_SETUP, &setup_moves);
+
+	int res = write(fd, move_str, move_size);
+	
+	if (res != 6) {
+		char error_message[500];
+
+		sprintf(error_message,
+			"write move did not run 6 move when sent %s, run %d moves",
+			move_str, res);
+		ok(false, error_message);
+		close(fd);
+		return;
+	}
+	char cube_after[CUBE_SIZE + 1];
+
+	res = read(fd, cube_after, CUBE_SIZE);
+
+	cube_after[CUBE_SIZE] = '\0';
+
+	if (res != CUBE_SIZE) {
+		ok(res == CUBE_SIZE, "read cube file wrong size");
+		close(fd);
+		return;
+	}
+	long cube_size = CUBE_SIZE;
+	char error_message[500];
+
+	sprintf(error_message,
+		"Test for rotations of type %s, got %s and expected %s",
+		move_str, cube_after, Consecutive_Writes_Out[5]);
+	ok(memcmp(Consecutive_Writes_Out[5], cube_after, cube_size) == 0,
+	error_message);
+	close(fd);
+	return;
+}
+
+
+TEST(write_from_children)
+{
+	int fd = open_cube_file();
+	
+	if (fd == -1) {
+		ok(fd != -1, "cube file open");
+		return;
+	}
+
+	unsigned short setup_moves = 0;
+	ioctl(fd, CUBE_SETUP, &setup_moves);
+
+	pid_t pid1 = fork();  // Create a child process
+
+    if (pid1 < 0) {
+		// If fork() returns a negative value, the creation of a child process failed
+		ok(pid1 >= 0 , "Fork failed");
+		return;
+    }
+    if (pid1 == 0) {
+		// This is the child process
+		const char *move_str = "D'";
+		int move_size = strlen(move_str);
+
+		//unsigned short setup_moves = 0;
+		//ioctl(fd, CUBE_SETUP, &setup_moves);
+
+		int res = write(fd, move_str, move_size);
+	
+		if (res != 1) {
+	//		printf("\n\nn\n\ncaligula\n\n\n");
+			close(fd);
+			exit(1);
+		}
+		
+		exit(0);  // Terminate the child process
+    }
+    else {
+		// This is the parent process
+		
+			pid_t pid2 = fork();  // Create a child process
+
+    	if (pid2 < 0) {
+		// If fork() returns a negative value, the creation of a child process failed
+			ok(pid2 >= 0 , "Fork failed");
+			return;
+	    }
+	    if (pid2 == 0) {
+			// This is the child process
+			const char *move_str = "D";
+			int move_size = strlen(move_str);
+
+			int res = write(fd, move_str, move_size);
+	
+			if (res != 1) {
+		//		printf("\n\nn\n\ncaligula\n\n\n");
+				close(fd);
+				exit(1);
+			}
+
+			exit(0);  // Terminate the child process
+    	}
+
+		int status1;
+    
+	    waitpid(pid1, &status1, 0);  // Wait for the child process to finish
+		
+		int status2;
+        
+		waitpid(pid2, &status2, 0);  // Wait for the child process to finish
+//		printf("\n\nn\n\ncaligula\n\n\n");
+//		printf("exit code: %d",WEXITSTATUS(status));
+	//	printf("\n\nn\n\ncaligula\n\n\n");
+        if (WEXITSTATUS(status1)==0 && WEXITSTATUS(status2)==0) {
+			
+			unsigned short is_solved;
+			int result = ioctl(fd, CUBE_IS_SOLVED, &is_solved);
+		
+			ok(result == 0 && is_solved == 1, "Writes by 2 children");
+			close(fd);
+
+        }
+		else
+		{
+			ok(false, "Writes by 2 children");
+		}
+	}
+}
+
 int main(void)
 {
 	test_count = 0;
@@ -875,6 +1295,13 @@ int main(void)
 	RUN_TEST(ioctl_invalid_command);
 	RUN_TEST(ioctl_cube_setup_invalid_input);
 	RUN_TEST(ioctl_cube_is_solved_invalid_input);
+	RUN_TEST(consecutive_writes_multiple_calls);
+	RUN_TEST(consecutive_writes_one_call);
+	RUN_TEST(read_from_child);
+	RUN_TEST(write_from_child);
+	RUN_TEST(ioctl_from_child);
+	RUN_TEST(write_with_multiple_spaces);
+	RUN_TEST(write_from_children);
 
 done_testing:
 	// It is ok for tha plan to be at the end https://testanything.org/tap-version-14-specification.html
