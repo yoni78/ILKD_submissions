@@ -567,8 +567,62 @@ bool test_D_tag() {
     return is_identical(D_orig_cube, cube);
 }
 
+
+void test_F_new() {
+ //   get_cube(cube);
+   // print_faces(cube);
+    process_moves("F F'");
+    get_cube(cube);
+    print_cube();
+}
+void test_R_new() {
+    get_cube(cube);
+   // print_faces(cube);
+    process_moves("R R'");
+    get_cube(cube);
+    print_cube();
+}
+void test_U_new() {
+    get_cube(cube);
+   // print_faces(cube);
+    process_moves("U U'");
+    get_cube(cube);
+    print_cube();
+}
+void test_L_new() {
+    get_cube(cube);
+   // print_faces(cube);
+    process_moves("L L'");
+    get_cube(cube);
+    print_cube();
+}
+void test_B_new() {
+    get_cube(cube);
+   // print_faces(cube);
+    process_moves("B B'");
+    get_cube(cube);
+    print_cube();
+}
+void test_D_new() {
+    get_cube(cube);
+   // print_faces(cube);
+    process_moves("D D'");
+    get_cube(cube);
+    print_cube();
+}
+
+/*
+void test_man() {
+    get_cube(cube);
+   // print_faces(cube);
+    process_moves("F R U L");
+    get_cube(cube);
+    print_cube_faces();
+}*/
+
 int main() {
     
+    /*
     RUN_TEST(split_string_test);
     RUN_TEST(test_validate_moves);
     RUN_TEST(test_F);
@@ -582,5 +636,16 @@ int main() {
     RUN_TEST(test_R_tag);
     RUN_TEST(test_L_tag);
     RUN_TEST(test_B_tag);
-    RUN_TEST(test_D_tag);
+    RUN_TEST(test_D_tag);*/
+    
+    //test_F_new();
+   // test_man();
+    test_F_new();
+    test_R_new();
+    test_U_new();
+    test_L_new();
+    test_B_new();
+    test_D_new();
 }
+
+

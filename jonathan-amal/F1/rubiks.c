@@ -145,6 +145,20 @@ int get_face_index(char c)
 
 void rotate_clockwise(int face_index);
 void rotate_anticlockwise(int face_index);
+void rotate_clockwise_adjacent_faces_front();
+void rotate_clockwise_adjacent_faces_up();
+void rotate_clockwise_adjacent_faces_right();
+void rotate_clockwise_adjacent_faces_back();
+void rotate_clockwise_adjacent_faces_left();
+void rotate_clockwise_adjacent_faces_down();
+
+void rotate_anticlockwise_adjacent_faces_front();
+void rotate_anticlockwise_adjacent_faces_up();
+void rotate_anticlockwise_adjacent_faces_right();
+void rotate_anticlockwise_adjacent_faces_back();
+void rotate_anticlockwise_adjacent_faces_left();
+void rotate_anticlockwise_adjacent_faces_down();
+
 
 void exec_move(char* move)
 {
@@ -190,11 +204,6 @@ void rotate_clockwise(int face_index)
 {
 
     int (*face)[CUBE_SIZE] = cube[face_index];
-    int (*adj_top)[CUBE_SIZE] = cube[adjacent[face_index][0]];
-    int (*adj_right)[CUBE_SIZE] = cube[adjacent[face_index][1]];
-    int (*adj_bottom)[CUBE_SIZE] = cube[adjacent[face_index][2]];
-    int (*adj_left)[CUBE_SIZE] = cube[adjacent[face_index][3]];
-    
     int temp[CUBE_SIZE][CUBE_SIZE];
 
     // Copy the face to a temporary array
@@ -210,7 +219,90 @@ void rotate_clockwise(int face_index)
             face[j][CUBE_SIZE - 1 - i] = temp[i][j];
         }
     }
+
+    switch(face_index) {
+        case 0: // Up
+            rotate_clockwise_adjacent_faces_up();
+            break;
+        case 1: // Left
+            rotate_clockwise_adjacent_faces_left();
+            break;
+        case 2: // Front
+            rotate_clockwise_adjacent_faces_front();
+            break;
+        case 3: // Right
+          //  printf("rotate_clockwise_adjacent_faces_right\n");
+            rotate_clockwise_adjacent_faces_right();
+            break;
+        case 4: // Back
+            rotate_clockwise_adjacent_faces_back();
+            break;
+        case 5: // Down
+            rotate_clockwise_adjacent_faces_down();
+    }
+}
+
+
+void rotate_clockwise_adjacent_faces_up()
+{
+    int (*adj_top)[CUBE_SIZE] = cube[adjacent[UP][0]];
+    int (*adj_right)[CUBE_SIZE] = cube[adjacent[UP][1]];
+    int (*adj_bottom)[CUBE_SIZE] = cube[adjacent[UP][2]];
+    int (*adj_left)[CUBE_SIZE] = cube[adjacent[UP][3]];
+
+    // Temporary arrays to hold the edges of adjacent faces
+    int top[CUBE_SIZE], left[CUBE_SIZE], right[CUBE_SIZE], bottom[CUBE_SIZE];
     
+    // Save the edges of adjacent faces
+    for (int i = 0; i < CUBE_SIZE; i++) {
+        top[i] = adj_top[0][i]; // Top row of the up face
+        right[i] = adj_right[0][i]; // Top row of the right face
+        bottom[i] = adj_bottom[0][i]; // Top row of the down face
+        left[i] = adj_left[0][i]; // Top row of the left face
+    }
+    
+    // Update the edges of adjacent faces
+    for (int i = 0; i < CUBE_SIZE; i++) {
+        adj_top[0][i] = left[i]; // Top row of the top face
+        adj_left[0][i] = bottom[i]; // Top row of the left face
+        adj_right[0][i] = top[i]; // Top row of the right face
+        adj_bottom[0][i] = right[i]; // Top row of the bottom face
+    }
+}
+
+void rotate_clockwise_adjacent_faces_right()
+{
+    int (*adj_top)[CUBE_SIZE] = cube[adjacent[RIGHT][0]];
+    int (*adj_right)[CUBE_SIZE] = cube[adjacent[RIGHT][1]];
+    int (*adj_bottom)[CUBE_SIZE] = cube[adjacent[RIGHT][2]];
+    int (*adj_left)[CUBE_SIZE] = cube[adjacent[RIGHT][3]];
+  //  printf("\nadjcaent\n%d%d%d%d\n\n",adjacent[RIGHT][0],adjacent[RIGHT][1],adjacent[RIGHT][2],adjacent[RIGHT][3]);
+    // Temporary arrays to hold the edges of adjacent faces
+    int top[CUBE_SIZE], left[CUBE_SIZE], right[CUBE_SIZE], bottom[CUBE_SIZE];
+    
+    // Save the edges of adjacent faces
+    for (int i = 0; i < CUBE_SIZE; i++) {
+        top[i] = adj_top[i][CUBE_SIZE-1]; // Right col of the up face
+        right[i] = adj_right[i][0]; // Left col of the right face
+        bottom[i] = adj_bottom[i][CUBE_SIZE-1]; // Right col of the down face
+        left[i] = adj_left[i][CUBE_SIZE-1]; // Right col of the left face
+    }
+    
+    // Update the edges of adjacent faces
+    for (int i = 0; i < CUBE_SIZE; i++) {
+        adj_top[i][CUBE_SIZE-1] = left[i]; 
+        adj_right[CUBE_SIZE-i-1][0] = top[i]; 
+        adj_bottom[CUBE_SIZE-i-1][CUBE_SIZE-1] = right[i]; 
+        adj_left[i][CUBE_SIZE-1] = bottom[i]; 
+    }
+}
+
+void rotate_clockwise_adjacent_faces_front()
+{
+    int (*adj_top)[CUBE_SIZE] = cube[adjacent[FRONT][0]];
+    int (*adj_right)[CUBE_SIZE] = cube[adjacent[FRONT][1]];
+    int (*adj_bottom)[CUBE_SIZE] = cube[adjacent[FRONT][2]];
+    int (*adj_left)[CUBE_SIZE] = cube[adjacent[FRONT][3]];
 
     // Temporary arrays to hold the edges of adjacent faces
     int top[CUBE_SIZE], left[CUBE_SIZE], right[CUBE_SIZE], bottom[CUBE_SIZE];
@@ -230,17 +322,90 @@ void rotate_clockwise(int face_index)
         adj_right[i][0] = top[i]; // Left column of the right face
         adj_bottom[0][CUBE_SIZE-1-i] = right[i]; // Top row of the bottom face
     }
-
 }
 
+void rotate_clockwise_adjacent_faces_back()
+{
+    int (*adj_top)[CUBE_SIZE] = cube[adjacent[BACK][0]];
+    int (*adj_right)[CUBE_SIZE] = cube[adjacent[BACK][1]];
+    int (*adj_bottom)[CUBE_SIZE] = cube[adjacent[BACK][2]];
+    int (*adj_left)[CUBE_SIZE] = cube[adjacent[BACK][3]];
+  //  printf("\nadjcaent\n%d%d%d%d\n\n",adjacent[RIGHT][0],adjacent[RIGHT][1],adjacent[RIGHT][2],adjacent[RIGHT][3]);
+    // Temporary arrays to hold the edges of adjacent faces
+    int top[CUBE_SIZE], left[CUBE_SIZE], right[CUBE_SIZE], bottom[CUBE_SIZE];
+    
+    // Save the edges of adjacent faces
+    for (int i = 0; i < CUBE_SIZE; i++) {
+        top[i] = adj_top[0][i]; // Top row of up face
+        right[i] = adj_right[i][0]; // Left col of the right face
+        bottom[i] = adj_bottom[CUBE_SIZE-1][i]; // Bottom Row of the down face
+        left[i] = adj_left[i][CUBE_SIZE-1]; // Right col of the left face
+    }
+    
+    // Update the edges of adjacent faces
+    for (int i = 0; i < CUBE_SIZE; i++) {
+        adj_top[0][i] = left[i]; 
+        adj_right[CUBE_SIZE-i-1][0] = top[i]; 
+        adj_bottom[CUBE_SIZE-1][i] = right[i]; 
+        adj_left[CUBE_SIZE-i-1][CUBE_SIZE-1] = bottom[i]; 
+    }
+}
+void rotate_clockwise_adjacent_faces_left()
+{
+    int (*adj_top)[CUBE_SIZE] = cube[adjacent[LEFT][0]];
+    int (*adj_right)[CUBE_SIZE] = cube[adjacent[LEFT][1]];
+    int (*adj_bottom)[CUBE_SIZE] = cube[adjacent[LEFT][2]];
+    int (*adj_left)[CUBE_SIZE] = cube[adjacent[LEFT][3]];
+  //  printf("\nadjcaent\n%d%d%d%d\n\n",adjacent[RIGHT][0],adjacent[RIGHT][1],adjacent[RIGHT][2],adjacent[RIGHT][3]);
+    // Temporary arrays to hold the edges of adjacent faces
+    int top[CUBE_SIZE], left[CUBE_SIZE], right[CUBE_SIZE], bottom[CUBE_SIZE];
+    
+    // Save the edges of adjacent faces
+    for (int i = 0; i < CUBE_SIZE; i++) {
+        top[i] = adj_top[i][0]; // Left col of up face
+        right[i] = adj_right[i][0]; // Left col of the right face
+        bottom[i] = adj_bottom[i][0]; // Left col of the down face
+        left[i] = adj_left[i][CUBE_SIZE-1]; // Right col of the left face
+    }
+    
+    // Update the edges of adjacent faces
+    for (int i = 0; i < CUBE_SIZE; i++) {
+        adj_top[CUBE_SIZE-i-1][0] = left[i]; 
+        adj_right[i][0] = top[i]; 
+        adj_bottom[i][0] = right[i]; 
+        adj_left[CUBE_SIZE-i-1][CUBE_SIZE-1] = bottom[i]; 
+    }
+}
+void rotate_clockwise_adjacent_faces_down()
+{
+    int (*adj_top)[CUBE_SIZE] = cube[adjacent[DOWN][0]];
+    int (*adj_right)[CUBE_SIZE] = cube[adjacent[DOWN][1]];
+    int (*adj_bottom)[CUBE_SIZE] = cube[adjacent[DOWN][2]];
+    int (*adj_left)[CUBE_SIZE] = cube[adjacent[DOWN][3]];
+  //  printf("\nadjcaent\n%d%d%d%d\n\n",adjacent[RIGHT][0],adjacent[RIGHT][1],adjacent[RIGHT][2],adjacent[RIGHT][3]);
+    // Temporary arrays to hold the edges of adjacent faces
+    int top[CUBE_SIZE], left[CUBE_SIZE], right[CUBE_SIZE], bottom[CUBE_SIZE];
+    
+    // Save the edges of adjacent faces
+    for (int i = 0; i < CUBE_SIZE; i++) {
+        top[i] = adj_top[CUBE_SIZE-1][i]; // Bottom row of up face
+        right[i] = adj_right[CUBE_SIZE-1][i]; // Bottom row of the right face
+        bottom[i] = adj_bottom[CUBE_SIZE-1][i]; // Bottom row of the down face
+        left[i] = adj_left[CUBE_SIZE-1][i]; // Bottom row of the left face
+    }
+    
+    // Update the edges of adjacent faces
+    for (int i = 0; i < CUBE_SIZE; i++) {
+        adj_top[CUBE_SIZE-1][i] = left[i]; 
+        adj_right[CUBE_SIZE-1][i] = top[i]; 
+        adj_bottom[CUBE_SIZE-1][i] = right[i]; 
+        adj_left[CUBE_SIZE-1][i] = bottom[i]; 
+    };
+}
 
 void rotate_anticlockwise(int face_index)
 {
     int (*face)[CUBE_SIZE] = cube[face_index];
-    int (*adj_top)[CUBE_SIZE] = cube[adjacent[face_index][0]];
-    int (*adj_right)[CUBE_SIZE] = cube[adjacent[face_index][1]];
-    int (*adj_bottom)[CUBE_SIZE] = cube[adjacent[face_index][2]];
-    int (*adj_left)[CUBE_SIZE] = cube[adjacent[face_index][3]];
 
     int temp[CUBE_SIZE][CUBE_SIZE];
 
@@ -251,13 +416,95 @@ void rotate_anticlockwise(int face_index)
             temp[i][j] = face[i][j];
         }
     }
-    // Rotate the face 90 degrees clockwise
+    // Rotate the face 90 degrees anti clockwise
     for (int i = 0; i < CUBE_SIZE; i++) {
         for (int j = 0; j < CUBE_SIZE; j++) {
             face[CUBE_SIZE - 1 - j][i] = temp[i][j];
         }
     }
+
+    switch(face_index) {
+        case 0: // Up
+            rotate_anticlockwise_adjacent_faces_up();
+            break;
+        case 1: // Left
+            rotate_anticlockwise_adjacent_faces_left();
+            break;
+        case 2: // Front
+            rotate_anticlockwise_adjacent_faces_front();
+            break;
+        case 3: // Right
+          //  printf("rotate_clockwise_adjacent_faces_right\n");
+            rotate_anticlockwise_adjacent_faces_right();
+            break;
+        case 4: // Back
+            rotate_anticlockwise_adjacent_faces_back();
+            break;
+        case 5: // Down
+            rotate_anticlockwise_adjacent_faces_down();
+    }
+}
+
+void rotate_anticlockwise_adjacent_faces_up()
+{
+    int (*adj_top)[CUBE_SIZE] = cube[adjacent[UP][0]];
+    int (*adj_right)[CUBE_SIZE] = cube[adjacent[UP][1]];
+    int (*adj_bottom)[CUBE_SIZE] = cube[adjacent[UP][2]];
+    int (*adj_left)[CUBE_SIZE] = cube[adjacent[UP][3]];
+
+    // Temporary arrays to hold the edges of adjacent faces
+    int top[CUBE_SIZE], left[CUBE_SIZE], right[CUBE_SIZE], bottom[CUBE_SIZE];
     
+    // Save the edges of adjacent faces
+    for (int i = 0; i < CUBE_SIZE; i++) {
+        top[i] = adj_top[0][i]; // Top row of the up face
+        right[i] = adj_right[0][i]; // Top row of the right face
+        bottom[i] = adj_bottom[0][i]; // Top row of the down face
+        left[i] = adj_left[0][i]; // Top row of the left face
+    }
+    
+    // Update the edges of adjacent faces
+    for (int i = 0; i < CUBE_SIZE; i++) {
+        adj_top[0][i] = right[i]; // Top row of the top face
+        adj_left[0][i] = top[i]; // Top row of the left face
+        adj_right[0][i] = bottom[i]; // Top row of the right face
+        adj_bottom[0][i] = left[i]; // Top row of the bottom face
+    }
+}
+
+void rotate_anticlockwise_adjacent_faces_right()
+{
+    int (*adj_top)[CUBE_SIZE] = cube[adjacent[RIGHT][0]];
+    int (*adj_right)[CUBE_SIZE] = cube[adjacent[RIGHT][1]];
+    int (*adj_bottom)[CUBE_SIZE] = cube[adjacent[RIGHT][2]];
+    int (*adj_left)[CUBE_SIZE] = cube[adjacent[RIGHT][3]];
+  //  printf("\nadjcaent\n%d%d%d%d\n\n",adjacent[RIGHT][0],adjacent[RIGHT][1],adjacent[RIGHT][2],adjacent[RIGHT][3]);
+    // Temporary arrays to hold the edges of adjacent faces
+    int top[CUBE_SIZE], left[CUBE_SIZE], right[CUBE_SIZE], bottom[CUBE_SIZE];
+    
+    // Save the edges of adjacent faces
+    for (int i = 0; i < CUBE_SIZE; i++) {
+        top[i] = adj_top[i][CUBE_SIZE-1]; // Right col of the up face
+        right[i] = adj_right[i][0]; // Left col of the right face
+        bottom[i] = adj_bottom[i][CUBE_SIZE-1]; // Right col of the down face
+        left[i] = adj_left[i][CUBE_SIZE-1]; // Right col of the left face
+    }
+    
+    // Update the edges of adjacent faces
+    for (int i = 0; i < CUBE_SIZE; i++) {
+        adj_top[i][CUBE_SIZE-1] = right[i]; 
+        adj_right[CUBE_SIZE-i-1][0] = bottom[i]; 
+        adj_bottom[CUBE_SIZE-i-1][CUBE_SIZE-1] = left[i]; 
+        adj_left[i][CUBE_SIZE-1] = top[i]; 
+    }
+}
+
+void rotate_anticlockwise_adjacent_faces_front()
+{
+    int (*adj_top)[CUBE_SIZE] = cube[adjacent[FRONT][0]];
+    int (*adj_right)[CUBE_SIZE] = cube[adjacent[FRONT][1]];
+    int (*adj_bottom)[CUBE_SIZE] = cube[adjacent[FRONT][2]];
+    int (*adj_left)[CUBE_SIZE] = cube[adjacent[FRONT][3]];
 
     // Temporary arrays to hold the edges of adjacent faces
     int top[CUBE_SIZE], left[CUBE_SIZE], right[CUBE_SIZE], bottom[CUBE_SIZE];
@@ -267,18 +514,98 @@ void rotate_anticlockwise(int face_index)
         top[i] = adj_top[CUBE_SIZE - 1][i]; // Bottom row of the top face
         right[i] = adj_right[i][0]; // Left column of the right face
         bottom[i] = adj_bottom[0][i]; // Top row of the bottom face
-        left[i] = adj_left[i][CUBE_SIZE - 1]; // Right column of the left face
+        left[i] = adj_left[CUBE_SIZE - 1 - i][CUBE_SIZE - 1]; // Right column of the left face
     }
-
+    
     // Update the edges of adjacent faces
     for (int i = 0; i < CUBE_SIZE; i++) {
         adj_top[CUBE_SIZE - 1][i] = right[i]; // Bottom row of the top face
-        adj_left[CUBE_SIZE - 1 - i][CUBE_SIZE - 1] = top[i]; // Right column of the left face
-        adj_right[i][0] = bottom[CUBE_SIZE - 1 - i]; // Left column of the right face
-        adj_bottom[0][i] = left[i]; // Top row of the bottom face
+        adj_left[i][CUBE_SIZE - 1] = top[i]; // Right column of the left face
+        adj_right[i][0] = bottom[i]; // Left column of the right face
+        adj_bottom[0][CUBE_SIZE-1-i] = left[i]; // Top row of the bottom face
     }
 }
 
+void rotate_anticlockwise_adjacent_faces_back()
+{
+    int (*adj_top)[CUBE_SIZE] = cube[adjacent[BACK][0]];
+    int (*adj_right)[CUBE_SIZE] = cube[adjacent[BACK][1]];
+    int (*adj_bottom)[CUBE_SIZE] = cube[adjacent[BACK][2]];
+    int (*adj_left)[CUBE_SIZE] = cube[adjacent[BACK][3]];
+  //  printf("\nadjcaent\n%d%d%d%d\n\n",adjacent[RIGHT][0],adjacent[RIGHT][1],adjacent[RIGHT][2],adjacent[RIGHT][3]);
+    // Temporary arrays to hold the edges of adjacent faces
+    int top[CUBE_SIZE], left[CUBE_SIZE], right[CUBE_SIZE], bottom[CUBE_SIZE];
+    
+    // Save the edges of adjacent faces
+    for (int i = 0; i < CUBE_SIZE; i++) {
+        top[i] = adj_top[0][i]; // Top row of up face
+        right[i] = adj_right[i][0]; // Left col of the right face
+        bottom[i] = adj_bottom[CUBE_SIZE-1][i]; // Bottom Row of the down face
+        left[i] = adj_left[i][CUBE_SIZE-1]; // Right col of the left face
+    }
+    
+    // Update the edges of adjacent faces
+    for (int i = 0; i < CUBE_SIZE; i++) {
+        adj_top[0][i] = right[i]; 
+        adj_right[CUBE_SIZE-i-1][0] = bottom[i]; 
+        adj_bottom[CUBE_SIZE-1][i] = left[i]; 
+        adj_left[CUBE_SIZE-i-1][CUBE_SIZE-1] = top[i]; 
+    }
+}
+
+void rotate_anticlockwise_adjacent_faces_left()
+{
+    int (*adj_top)[CUBE_SIZE] = cube[adjacent[LEFT][0]];
+    int (*adj_right)[CUBE_SIZE] = cube[adjacent[LEFT][1]];
+    int (*adj_bottom)[CUBE_SIZE] = cube[adjacent[LEFT][2]];
+    int (*adj_left)[CUBE_SIZE] = cube[adjacent[LEFT][3]];
+  //  printf("\nadjcaent\n%d%d%d%d\n\n",adjacent[RIGHT][0],adjacent[RIGHT][1],adjacent[RIGHT][2],adjacent[RIGHT][3]);
+    // Temporary arrays to hold the edges of adjacent faces
+    int top[CUBE_SIZE], left[CUBE_SIZE], right[CUBE_SIZE], bottom[CUBE_SIZE];
+    
+    // Save the edges of adjacent faces
+    for (int i = 0; i < CUBE_SIZE; i++) {
+        top[i] = adj_top[i][0]; // Left col of up face
+        right[i] = adj_right[i][0]; // Left col of the right face
+        bottom[i] = adj_bottom[i][0]; // Left col of the down face
+        left[i] = adj_left[i][CUBE_SIZE-1]; // Right col of the left face
+    }
+    
+    // Update the edges of adjacent faces
+    for (int i = 0; i < CUBE_SIZE; i++) {
+        adj_top[CUBE_SIZE-i-1][0] = right[i]; 
+        adj_right[i][0] = bottom[i]; 
+        adj_bottom[i][0] = left[i]; 
+        adj_left[CUBE_SIZE-i-1][CUBE_SIZE-1] = top[i]; 
+    }
+}
+
+void rotate_anticlockwise_adjacent_faces_down()
+{
+    int (*adj_top)[CUBE_SIZE] = cube[adjacent[DOWN][0]];
+    int (*adj_right)[CUBE_SIZE] = cube[adjacent[DOWN][1]];
+    int (*adj_bottom)[CUBE_SIZE] = cube[adjacent[DOWN][2]];
+    int (*adj_left)[CUBE_SIZE] = cube[adjacent[DOWN][3]];
+  //  printf("\nadjcaent\n%d%d%d%d\n\n",adjacent[RIGHT][0],adjacent[RIGHT][1],adjacent[RIGHT][2],adjacent[RIGHT][3]);
+    // Temporary arrays to hold the edges of adjacent faces
+    int top[CUBE_SIZE], left[CUBE_SIZE], right[CUBE_SIZE], bottom[CUBE_SIZE];
+    
+    // Save the edges of adjacent faces
+    for (int i = 0; i < CUBE_SIZE; i++) {
+        top[i] = adj_top[CUBE_SIZE-1][i]; // Bottom row of up face
+        right[i] = adj_right[CUBE_SIZE-1][i]; // Bottom row of the right face
+        bottom[i] = adj_bottom[CUBE_SIZE-1][i]; // Bottom row of the down face
+        left[i] = adj_left[CUBE_SIZE-1][i]; // Bottom row of the left face
+    }
+    
+    // Update the edges of adjacent faces
+    for (int i = 0; i < CUBE_SIZE; i++) {
+        adj_top[CUBE_SIZE-1][i] = right[i]; 
+        adj_right[CUBE_SIZE-1][i] = bottom[i]; 
+        adj_bottom[CUBE_SIZE-1][i] = left[i]; 
+        adj_left[CUBE_SIZE-1][i] = top[i]; 
+    };
+}
 
 void print_faces() {
     for (int k = 0; k < FACES; k++) {
@@ -292,7 +619,33 @@ void print_faces() {
         printf("\n");
     }
 }
+void print_cube_faces() {
+    for (int k = 0; k < FACES; k++) {
+        //printf("FACE %d:\n", k);
+        for (int i = 0; i < CUBE_SIZE; i++) {
+            for (int j = 0; j < CUBE_SIZE; j++) {
+                printf("%d", cube[k][i][j]);
+            }
+            printf("\n");
+        }
+        printf("\n");
+    }
+    printf("\n");
+}
 
+void print_cube() {
+    for (int k = 0; k < FACES; k++) {
+        //printf("FACE %d:\n", k);
+        for (int i = 0; i < CUBE_SIZE; i++) {
+            for (int j = 0; j < CUBE_SIZE; j++) {
+                printf("%d", cube[k][i][j]);
+            }
+     //       printf("\n");
+        }
+   //     printf("\n");
+    }
+   printf("\n");
+}
 void get_cube(int cur_cube[CUBE_SIZE][CUBE_SIZE][CUBE_SIZE])
 {
     for (int k = 0; k < FACES; k++) {
