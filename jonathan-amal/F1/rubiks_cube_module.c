@@ -731,7 +731,7 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, lof
     }
 
     if (copy_from_user(moves, buffer, len)) {
-        res = -EINVAL; // TODO: This means that the buffer is invalid?
+        res = -EINVAL;
         goto free_and_exit;
     }
 
